@@ -1,0 +1,556 @@
+
+# How our codes are built?
+
+You can view the table of contents by clicking the <img src="https://icongr.am/octicons/list-unordered.svg?size=128&color=currentColor" alt= "icon" width=24> menu icon at the top left of the rendered page.
+
+## Exploring the Xcode Build Process
+
+<img src="./images/build_process.png" alt= "build process" width="100%">
+<br/>
+
+## Execution of a Collection of Tasks
+
+So when your app is built, there's a number of steps involved to go from the source code and resources in your project to the package that is shipped to customers or uploading to the App Store for distribution. 
+
+- Compile and link source code
+- Copy and process resources like headers, asset catalogues and storyboards
+- Code sign 
+- Custom work in a shell script 
+- Make file like building API documentation for your framework
+- Running code linting and validation tools
+
+Most of these tasks in the build process are performed by running command line tools
+
+- `swiftc` (Swift compiler)
+- `clang` (C, C++, ObjC compiler)
+- `ld` (linker)
+- `actool` (assets catalog tool)
+- `ibtool` (interface builder tool)
+- ...
+
+Like this:
+
+```
+$ swiftc -module-name PetWall -target arm64-apple-ios12.0 -swift-version 4.2 ... $ clang -x objective-c -arch arm64 ... PetViewController.m -o PetViewController.o $ ld -o PetWall -framework PetKit PetViewController.o ...
+$ actool --app-icon AppIcon ... Assets.xcassets
+$ ...
+$ [thousands more]
+```
+
+These tools have to be executed with a very specific set of arguments and in a particular order based on the configuration of the Xcode project. 
+
+
+<img src="./images/task_execution_order1.png" alt= "task execution order 1" width="30%">
+
+
+The build process automates the orchestration and execution of these tasks each time you perform a build.
+
+The order in which build tasks are executed is determined from the dependency information of each task:
+
+- the inputs that a task consumes
+- the outputs that a task produces
+
+
+For example:
+
+- a compilation task consumes a source code file (`.swift`, `.m`) as input, and produces an object file (`.o`) as output
+
+<br/>
+<img src="./images/task_execution_order2.png" alt= "task execution order 2" width="50%">
+<br/>
+<br/>
+
+- a linker task consumes a number of object files (`.o`) produced by the compiler in previous tasks, and produces and executable or library output
+
+<img src="./images/task_execution_order3.png" alt= "task execution order 3" width="50%">
+
+You can see hoe the compilation tasks are totally independent in their own lanes and can therefore run in parallel. And because the linker task takes everything else's input, we know that has to come last.
+
+<img src="./images/task_execution_order4.png" alt= "task execution order 4" width="50%">
+<br/>
+<br/>
+
+## What happens when you press build?
+
+### Clean Build
+
+1. the build system takes the build description in your Xcode project file, parses it, takes into account all the files in your project, your targets, the dependency relationships, your build settings, etc.
+
+2. the build system will generate a Directed Graph (from the info of step 1), which represents all the dependencies between the input and output files in your project. It will generate the tasks that will be executed to process them.
+
+<img src="./images/dependency_graph1.png" alt= "dependency graph 1" width="70%">
+
+3. the low-level execution engine (`llbuild`, it's open source) processes this graph, looks at the dependency specifications and figures out which tasks to execute, the sequence or order in which they must be run, which tasks can be run in parallel. Then proceeds to execute them.
+
+
+### Incremental Build
+
+When `llbuild` runs, besides outputting the object file (`.o`), it might also output a listing file (`.d`), containing which header files (imports) were included by that source file.
+
+<img src="./images/incremental_build2.png" alt= "incremental build 2" width="50%">
+
+The next time you build, the build system uses the information from this file (`.d`) to make sure that it recompiles the source file if you change any of the header files that it includes.
+Having an accurate dependency information (via `.d`) is very important in order for incremental builds to work correctly and efficiently.
+
+<img src="./images/incremental_build.png" alt= "incremental build" width="70%">
+
+
+#### How does the build system actually detect changes?
+
+- Each task in the build graph has an associated signature(hash)
+- Signature computed from:
+    - Task's inputs: file paths, modification time stamps
+    - The command line indication used to perform the command
+    - Task-specific metadata(e.g. the version of the compiler that's being used)
+- Build system tracks task signatures among multiple builds
+- A task is re-run when the hash is different between builds, it's skipped otherwise
+
+## Where do dependencies come from?
+
+- Built-in(Build Rules) - the various tools within the build system know which tasks accept which input and produce which output (e.g. `atool`, `ld`, ..)  
+<img src="./images/build_rules.png" alt= "build_rules" width="50%">
+
+- Dependencies(Target Dependencies)
+    - targets can start building sooner
+    - all run script phases need to complete before this parallelization can take effect  
+    <img src="./images/dependencies_from1.png" alt= "dependencies from 1" width="50%">
+
+- Implicit dependencies(Link library With Binaries)
+    - If you list a target in your `Link library With Binaries` build phase, and `Find Implicit Dependencies` are enabled in the scheme editor (on by default), the build system will establish an implicit dependency on that target (even if it's not listed in target dependencies)  
+<img src="./images/dependencies_from2.png" alt= "dependencies from 2" width="50%">
+<br/>
+<img src="./images/dependencies_from4.png" alt= "dependencies from 4" width="50%">
+<br/>
+
+- Build phase dependencies
+    - Each phase is a separate task
+    - The build system might run these phases in a different order (e.g. if `Link Binary with libraries` phase is ordered before Compile sources)
+    - A wrong phase order might cause a build failure  
+<img src="./images/dependencies_from3.png" alt= "dependencies from 3" width="50%">
+
+- Scheme order dependencies
+    - If you choose the `Dependency Order` in your scheme settings, you get better build performance and the order of your targets in your scheme doesn't matter
+    - If you turn `Manual Order`, Xcode will attempt to build your targets in the order you listed them in the build action of the scheme one by one  
+    <img src="./images/dependencies_from5.png" alt= "dependencies from 5" width="50%">
+
+※ In Xcode 13, the `Parallelize Build` checkbox was replaced with two radio buttons: `Dependency Order` (the same as a checked old checkbox) and `Manual Order` (the same as an unchecked old checkbox)
+
+## How you can help the build system do its job? 
+
+The build is represented as a directed graph.
+Instead of thinking about the order in which these tasks should be executed because that's the build system's job, as developers, we need to think about dependencies between tasks and let the build system figure out how to best execute them according to the graph's structure.
+
+- Set input/outputs on your build phases (lets the build system avoid re-running the script tasks unnecessarily)
+- Avoid Auto-link for project dependencies
+    - This setting allows the compiler to automatically link to the frameworks corresponding to any modules you import without having to explicitly link them in your link library's build phase
+    - Auto-link does not establish dependency on that framework at the build system level (won't guarantee that the target you depend on is actually built before you try to link against it)
+    - You should rely on this feature only for frameworks from the platform SDK (UIKit, etc.)  
+    <img src="./images/dependencies_from6.png" alt= "dependencies from 6" width="70%">
+    <br/>
+    <br/>
+
+    - For targets in your own projects, make sure to add explicit library dependencies  
+    <img src="./images/dependencies_from1.png" alt= "dependencies from 1" width="70%">
+    <br/>
+
+## Linking
+
+### What is the Linker?
+
+- It's the final task in building an executable Mach-O
+- It combines the output of all compiler invocations into a single file
+- Moves and patches code generated by the compilers (it cannot create code)
+- Take two kinds of input files
+    - object files(`.o`) which are what come out of your build process
+    - libraries which consist of several types including `.dylib`, `.tbd`, and `.a` files or `.a` static archives
+
+### What is Symbols?
+
+- A symbol is a name to refer to a fragment of code or data
+- Fragments of code may reference other symbols (e.g. when a function calls another function)
+- Symbols can have attributes on them that alter the linker’s behavior
+    - e.g. Weak is one of those attributes
+        - Weak symbols state that the symbol might not be there when we run the executable on the system
+        - This is what all the availability markup that says this API is available on iOS x
+- Languages often encode data into a symbol "mangling" the symbol
+
+### What is Object Files (.o)
+
+- Output of individual compiler actions
+    - They are collections of code and data we refer via symbols
+    - A non-executable Mach-O file containing code and data fragments
+    - while they are compiled code, they have bits missing, which is what the linker is going to glue together
+    - Each fragment in these `.o` is represented by a symbol
+    - Fragments may reference “undefined” symbols
+        - When a `.o` refers to a function in another `.o` file, the linker is responsible to find those undefined symbols and link them
+
+### What is Libraries?
+
+- Libraries define symbols that are not built as part of your target
+    - Dylibs: Dynamic libraries (`.dylib`)
+        - Mach-O file that exposes code and data fragments executables can use
+        - Some of those are distributed as part of the OS, that's what Apple's frameworks are
+        - Can also be from 3rd parties
+    - TBDs: Text Based Dylib Stubs (`.tbd`)
+        - Only contains symbols
+        - No bodies for any symbols, just their names (no binary code)
+        - Used for distributing Apple's SDKs to reduce their size (it reduces the size of the SDK you download with Xcode, not the size of the app you're building)
+    - Static archives (`.a`)
+        - Archive of multiple `.o` files built with the `ar` tool
+        - It's just a `.zip` file with `.a` extension (`.a` was the original archive format used by UNIX)
+        - Only `.o` files with symbols you reference are included in your app
+            - If you're using some sort of non-symbol behavior like a static initializer, or you're re-exporting them as part of your own dylib, you may need to explicitly use something like force load or all load to the linker to tell it bring in everything
+
+
+
+## Interaction between Swift and Objective-C
+
+### How Swift find declarations?
+
+#### Find declarations within a Swift Target
+
+- When compiling one Swift file (with `swiftc`), the compiler will parse all the other Swift files in the target. To examine the parts of them that are relevant to the interfaces
+- It will only parse the files headers, not the implementations
+- The compiler gather multiple files into groups (that will be compiled in separated processes) to share as much work as possible (avoids repeating parsing within a group, only need to parse again across groups/processes).
+- Swift has no headers, so Swift compiler does some additional bookkeeping
+    - Find declarations both within Swift targets and from Objective-C (to compile Swift files depending on Objective-C declarations)
+    - Generate interfaces describing the contents of each file (to compile Objective-C files depending on Swift declarations)
+
+##### Generate interfaces to use in other Swift Targets
+
+- It must first import other modules to see their declarations
+- It can import Clang/Objective-C modules(e.g. XCTest)
+- In Xcode, each Swift target produces a separate module
+- When importing a module, the compiler deserializes a special Swift module file (`.swiftmodule`) to check the types when you use them
+
+##### swiftmodule file
+
+We expose declarations to other modules via `.swiftmodule`.
+
+- Serialized, binary representation of module’s declarations
+- Includes bodies of `@inlinable` functions
+- Includes private declarations (for debugging)
+
+<img src="./images/swiftmodule.png" alt= "swiftmodule" width="50%">
+
+
+In the case of incremental build,
+
+- The compiler produces partial Swift module files and then merges them into a single file that represents the contents of the entire module
+- This merging process also makes it possible to produce a single Objective-C header (out of the final `.swiftmodule`)
+
+#### Find declarations from Objective-C
+
+- `swiftc` embeds `clang` and uses it as a library
+- This makes it possible to directly import Objective-C (without having to manually create a Swift interface for each declaration)
+- In any target, when you import an Objective-C framework, the importer finds declarations in the headers exposing Clang's module map for that framework
+- Within **a framework** that mixes Swift and Objective-C code, the importer finds declarations in the umbrella header
+- Within **app and unit test bundles**, via the target bridging header
+
+
+##### Conversion Objective-C codes into Swift codes
+
+Clang Importer makes methods more Swifty
+
+- Methods that use the `NSError` idiom become throwing methods in Swift
+- Methods will drop parameter type names following verbs and prepositions([list](https://github.com/apple/swift/blob/82568468494fd74dba17ba695c3cdf6fab1c3369/lib/Basic/PartsOfSpeech.def))
+
+※ We can see how the method is converted in `Generated interface`.
+
+<img src="./images/compare_objc_swift1.png" alt= "compare objc swift 1" width="120%">
+
+##### NS_SWIFT_NAME
+
+We can change Objective-C method name to more Swifty name.
+
+```objective-c
+@interface SomeAppClass : NSObject
+
+- (void) say: (NSString *)message NS_SWIFT_NAME(saySwift(message:));
+@end
+```
+
+##### NS_SWIFT_UNAVAILABLE
+
+We can restrict the method usage in Swift.
+
+```objective-c
+@interface SomeAppClass : NSObject
+
+- (void) say: (NSString *)message NS_SWIFT_NAME(saySwift(message:));
+- (void) nothing NS_SWIFT_UNAVAILABLE("Can not use in Swift");
+
+@end
+```
+##### Nullability
+
+When we see the Swift interface of the below method, we can see `!` in Swift.
+
+<img src="./images/nullability1.png" alt= "nullability 1" width="100%">
+<br/>
+<br/>
+
+We can eliminate this extra optional explicitly by adding `nonnull` to the parameter.
+
+<img src="./images/nullability2.png" alt= "nullability 2" width="100%">
+<br/>
+<br/>
+
+In another way, we can create special regions by wrapping declarations between `NS_ASSUME_NONNULL_BEGIN` and `NS_ASSUME_NONNULL_END`. Within these regions, any simple pointer type will be assumed to be `nonnull`. If we want to make some `nullable`, add `nullable` explicitly.
+
+<img src="./images/nullability3.png" alt= "nullability 3" width="100%">
+
+### How Objective-C finds declarations?
+
+To find Objective-C declarations used from other Objective-C files via
+
+- Header files
+- Forward Declarations
+
+#### Header Files
+
+- Header file(`.h`) with declarations we want to expose
+- If you want to refer a class from another file, import headers (e.g. `#import <Foundation/Foundation.h>`)
+<br/>
+<img src="./images/objc_files.png" alt= "objc_files" width="50%">
+<br/>
+
+```Objective-C
+/* SomeObjectiveCClass.h */
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface SomeObjectiveCClass : NSObject
+- (void)say:(NSString*)message;
+@end
+```
+※ Explain about what is `NS_ASSUME_NONNULL_BEGIN` later
+
+- We can import headers(.h) to access the declarations defined in the header files
+- The headers must contain the declarations we want to expose to other files
+- The declarations in a header file only includes the type signature - without the implementation
+- Keep your header files as short as possible - only exposing what is really needed. Keep implementation details hidden in the implementation file
+
+##### import and include
+
+`#import` is a macro that copy the content of the header file into that's importing it(In this case, the content of the Foundation.h header file will be copied into the SomeObjectiveCClass.h file). 
+It's similar to `#include` in C/C++. 
+
+This is a recursive process. Importing/including a header that also imports other headers will copy all headers recursively.
+
+`#import` avoids importing the same header twice more than once - prevents duplicate declarations. `#include` doesn't prevent that.
+
+---
+
+Implementation file(.m)
+
+- Implementation file(`.m`) with private declarations
+
+```objective-c
+/* SomeObjectiveCClass.m */
+
+#import "SomeObjectiveCClass.h"
+
+@implementation SomeObjectiveCClass
+- (void)say:(NSString*)message {
+    [self private_say:message];
+}
+
+- (void)private_say:(NSString*)message {
+    NSLog(@"%@", message);
+}
+@end
+```
+
+- The concrete implementation is declared
+- `say` method was declared in the header file, so it can be accessed by any other file that imports the header
+- `private_say` method was **NOT** declared in the header file, so it **cannot** be accessed by any other file
+
+##### Semantic import
+
+`@import` is a semantic import. It doesn't need to parse the headers, so build is faster than `#import`. It relies on Module Maps.
+
+
+#### How Xcode find header files?
+
+Header search Paths
+
+<img src="./images/header_search_paths.png" alt= "header search paths" width="50%">
+
+
+### Share codes with other modules
+
+#### Headers categories
+
+We need to share binaries as well as headers.
+This happens in Headers of Build Phase.
+
+<img src="./images/build_phases_headers.png" alt= "build phases headers" width="50%">
+
+
+We need "Public" header to use it from another files.
+
+<img src="./images/target_membership.png" alt= "target membership" width="50%">
+
+
+After build, we can see this header file in "Headers" in "DerivedData".
+
+<img src="./images/header_public1.png" alt= "header public 1" width="50%">
+
+The elements in this file are visible to other modules and can be available.
+
+<img src="./images/header_private.png" alt= "header private 1" width="50%">
+
+On the other hand, if a file is "Private", another directory called "PrivateHeaders" is created in "DerivedData". Clients can see its symbols, but shouldn't know how to use them. So, you should not import Private headers (It might cause breaking change in the future).
+
+
+※ If we create a header file from "Header file", we can see this template code.
+
+<img src="./images/header_template.png" alt= "header template" width="50%">
+
+```Objective-C
+#ifndef SomeFrameworkClass_h
+#define SomeFrameworkClass_h
+
+
+#endif /* SomeFrameworkClass_h */
+```
+
+This is to avoid duplicating `#include` from C/C++ headers. 
+
+
+#### Umbrella Header and Module Map
+
+In addition to Header import, Apple improves options to expose Objective-C codes to other modules in both Objective-C and Swift
+
+##### Umbrella Header
+
+It's a domain header for framework. It shares the same name as the framework name. We can use all the public headers want to expose instead of importing all the header files.
+
+
+※ When creating a framework, you can see this template. We can ignore it, so delete theses codes here.
+
+```objective-c
+#import <Foundation/Foundation.h>
+
+//! Project version number for BuildFramework.
+FOUNDATION_EXPORT double BuildFrameworkVersionNumber;
+
+//! Project version string for BuildFramework.
+FOUNDATION_EXPORT const unsigned char BuildFrameworkVersionString[];
+
+// In this header, you should import all the public headers of your framework using statements like #import <BuildFramework/PublicHeader.h>
+```
+
+##### ModuleMap
+
+It's a text file mapping modules and headers. By sharing Module Map, we can import a specific part of the module
+
+```objective-c
+framework module BuildFramework {
+  umbrella header "BuildFramework.h"
+
+  export *
+  module * { export * }
+}
+```
+
+<img src="./images/modulemap.png" alt= "modulemap" width="50%">
+
+#### Forward Declaration
+
+This is another approach to use Objective-C codes from other modules.
+
+By importing elements all over the place, it might cause cyclic dependencies (e.g.importing A from B, and B from A).
+
+To avoid it, we can use Forward Declaration. It basically tells the compiler that the element exists, without specifying what exactly it looks like.
+
+Also, we don't need import and can avoid rebuilding extra modules.
+
+
+```objective-c
+#import <Foundation/Foundation.h>
+
+@class SomeObjectiveCClass;
+```
+
+※ According to [wikipedia](https://en.wikipedia.org/wiki/Forward_declaration),
+In computer programming, a forward declaration is a declaration of an identifier (denoting an entity such as a type, a variable, a constant, or a function) for which the programmer has not yet given a complete definition.
+
+
+#### Generate interfaces to use in Objective-C
+
+- Swift generates a header that you can `#import`
+- This allows you to write classes in Swift and call them from Objective-C
+
+<img src="./images/swift_to_objc1.png" alt= "swift to objc 1" width="100%">
+
+If we don't expose Swift classes as `NSObject` subclasses, methods/properties marked `@objc`, make them `public`, they are not visible from Objective-C.
+
+For example,
+
+```Swift
+class SomeSwiftClass {
+    var message: String = ""
+    var name = ""
+}
+```
+
+By changing it to the below, it becomes visible.
+
+```swift
+public class SomeSwiftClass: NSObject {
+    @objc public var message: String = ""
+    var name = ""
+}
+```
+
+<img src="./images/swift_to_objc1.png" alt= "swift to objc 1" width="100%">
+
+We can use if from other modules like this.
+
+```swift
+#import "SomeAppClass.h"
+#import "BuildFramework/BuildFramework-Swift.h"
+
+@implementation SomeAppClass
+- (void) say: (NSString *)message {
+    SomeSwiftClass *s = [[SomeSwiftClass alloc] init];
+    s.message = message;
+}
+@end
+```
+
+#### Change name convention
+
+To prevent name conflicts in Objective-C, Swift compiler automatically mangles the name like `_TtC14BuildFramework14SomeSwiftClass`.
+
+We can manually change the name using `@objc`.
+
+<img src="./images/swift_to_objc2.png" alt= "swift to objc 2" width="100%">
+
+Then, we can use the name.
+
+```swift
+#import "SomeAppClass.h"
+#import "BuildFramework/BuildFramework-Swift.h"
+
+@implementation SomeAppClass
+- (void) say: (NSString *)message {
+    SomeSwiftClassObjc *s = [[SomeSwiftClassObjc alloc] init];
+    s.message = message;
+}
+@end
+```
+
+### Resources
+
+- [Behind the Scenes of the Xcode Build Process](https://developer.apple.com/wwdc18/415)
+- [Refine Objective-C frameworks for Swift](https://developer.apple.com/videos/play/wwdc2020/10680?time=57)
+- [Nullability and Objective-C](https://developer.apple.com/swift/blog/?id=25)
+- [Importing Swift into Objective-C](https://developer.apple.com/documentation/swift/imported_c_and_objective-c_apis/importing_swift_into_objective-c)
+- [Importing Objective-C into Swift](https://developer.apple.com/documentation/swift/imported_c_and_objective-c_apis/importing_objective-c_into_swift)
+- [Handling Cocoa Errors in Swift](https://developer.apple.com/documentation/swift/cocoa_design_patterns/handling_cocoa_errors_in_swift)
+- [Renaming Objective-C APIs for Swift](https://developer.apple.com/documentation/swift/objective-c_and_c_code_customization/renaming_objective-c_apis_for_swift)
+- [WWDC NOTES](http://www.wwdcnotes.com/notes/wwdc18/415/)
+
