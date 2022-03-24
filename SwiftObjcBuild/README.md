@@ -543,6 +543,157 @@ Then, we can use the name.
 @end
 ```
 
+## Good Coding Practices to improve build efficiency 
+
+Shorten compile times by reducing the number of symbols your code exports and by giving the compiler the explicit information it needs.
+
+### Include Framework Names in Import Statements
+
+When you import headers into your source files, always include the name of the parent framework or library in your import statement.
+
+#### Why?
+When you include the framework name, the compiler has the option to use module maps to import the headers, which significantly reduces importation time. With module maps, the compiler loads and processes the framework’s header files once, and caches the resulting symbol information on disk.
+
+#### Example
+
+```objective-c
+// Imports the framework’s module map
+#import <UIKit/UIKit.h>
+#import <PetKit/PetKit.h> // Custom framework
+
+// Performs a textual inclusion of the header file.
+#import "MyHeader.h"
+```
+
+### Minimize the number of symbols you share between Swift and Objective-C
+
+Reducing the size of both The Objective-C bridging headers and The compiler-generated Swift headers reduces the compiler’s workload and improves compilation times.
+
+#### Why?
+
+The compiler handles this exchange of symbol information using two special header files:
+
+- The Objective-C bridging header determines which Objective-C symbols you make available to your Swift code.
+- The compiler-generated Swift header is a list of all public Swift symbols you can use in your Objective-C code.
+
+#### Objective-C -> Swift
+
+When configuring the contents of your Objective-C bridging header, include only the headers and symbols you actually reference from your Swift source. If your Swift code uses only part of an Objective-C class, move the symbols your Swift code doesn’t use into categories in your implementation file or in an internal-only header file.
+
+<br/>
+<img src="./images/improving-build-efficiency.png" alt= "improving-build-efficiency" width="100%">
+<br/>
+
+#### Swift -> Objective-C
+
+The compiler makes all of your public Swift symbols available to your Objective-C code automatically using a generated header. To minimize the size of this generated header, update your Swift code in the following ways:
+- Mark internal methods and properties of your Swift classes as private. The presence of that keyword prevents the inclusion of the symbol in the generated header file
+- Choose block-based APIs over function-based APIs. Blocks are part of your implementation, and don’t generate public symbol information
+- Support the most-recent version of the Swift language
+
+### Provide the Swift Compiler with Explicit Type Information
+
+If you assign a complex value to a variable, the best practice is to provide the type explicitly
+
+#### Why?
+
+The Swift compiler is capable of inferring the type of a variable from the value you assign to it. But, assigning a complex value to a variable forces the compiler to perform extra work to compute any type information.
+
+#### Example
+
+Consider the following structure, in which the `bigNumber` property has no explicit type information. To determine the type of that property, the Swift compiler must evaluate the results of the `reduce(_:_:)` function, which takes a nontrivial amount of time.
+
+```swift
+struct ContrivedExample {
+    var bigNumber = [4, 3, 2].reduce(1) {
+        soFar, next in
+        pow(next, soFar)
+    }
+}
+```
+
+Instead of letting the compiler determine the type, provide explicit type information reduces the work the compiler must do, and also allows it to do more error checking.
+
+```swift
+struct ContrivedExample {
+    var bigNumber : Double = [4, 3, 2].reduce(1) {
+        soFar, next in
+        pow(next, soFar)
+    }
+}
+```
+
+#### Define Delegate Methods in Explicit Protocols
+
+Although delegation enables communication between arbitrary objects, always provide explicit type information for your delegate objects.
+
+#### Why?
+
+Communication between arbitrary objects actually creates more work for the compiler. The compiler must assume that any object in your project or referenced frameworks contains the function, and so it searches your entire project to make sure that function exists somewhere.
+
+#### Example
+
+Consider the following example of a delegate declared as an optional object of any type. 
+
+```swift
+weak var delegate: AnyObject?
+func reportSuccess() {
+    delegate?.myOperationDidSucceed(self)
+}
+```
+
+Instead of using any object, a better approach is to supply specific type information. Typically, you specify the type information using a delegate protocol.
+
+```swift
+weak var delegate: MyOperationDelegate?
+func reportSuccess() {
+    delegate?.myOperationDidSucceed(self)
+}
+
+protocol MyOperationDelegate {
+    func myOperationDidSucceed(_ operation: MyOperation)
+}
+```
+
+### Simplify Complex Swift Expressions
+
+The Swift language allows you to write code in very expressive ways, but make sure your code doesn’t affect compile times. 
+
+#### Why?
+
+These codes make the code hard to read and harder for the compiler to evaluate.
+
+#### Example
+
+Consider an example of a function that uses the `reduce` function to sum a set of values. If you pass `nil` for all the arguments, the function returns `nil`, but if you pass one or more arguments, it sums the sum of those arguments. 
+
+```swift
+func sumNonOptional(i: Int?, j: Int?, k: Int?) -> Int? {
+    return [i, j, k].reduce(0) {
+        soFar, next in
+        soFar != nil && next != nil ? soFar! + next! : (soFar != nil ? soFar! : (next != nil ? next! : nil))
+    }
+}
+```
+
+In fact, the compiler aborts with an error that states it cannot type-check the expression in a reasonable amount of time. The one-line closure is also unnecessary.
+
+Rather than use such a complex expression, it’s better to create something simpler and more readable. The following code offers the same behavior as the single-line closure version, but is easier to read and compiles quickly.
+
+```swift
+func sumNonOptional(i: Int?, j: Int?, k: Int?) -> Int? {
+    return [i, j, k].reduce(0) {
+        soFar, next in
+        if let soFar = soFar {
+            if let next = next { return soFar + next }
+            return soFar
+        } else {
+            return next
+        }
+    }
+}
+```
+
 ### Resources
 
 - [Behind the Scenes of the Xcode Build Process](https://developer.apple.com/wwdc18/415)
@@ -553,4 +704,5 @@ Then, we can use the name.
 - [Handling Cocoa Errors in Swift](https://developer.apple.com/documentation/swift/cocoa_design_patterns/handling_cocoa_errors_in_swift)
 - [Renaming Objective-C APIs for Swift](https://developer.apple.com/documentation/swift/objective-c_and_c_code_customization/renaming_objective-c_apis_for_swift)
 - [WWDC NOTES](http://www.wwdcnotes.com/notes/wwdc18/415/)
+- [Improving Build Efficiency with Good Coding Practices](https://developer.apple.com/documentation/xcode/improving-build-efficiency-with-good-coding-practices)
 
