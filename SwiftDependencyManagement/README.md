@@ -16,7 +16,7 @@
     - [Singleton and test](#singleton-and-test)
       - [Property injection](#property-injection-1)
     - [Global Mutable Shared State](#global-mutable-shared-state)
-    - [Singleton(Global Mutable Shared State) possible problems](#singletonglobal-mutable-shared-state-possible-problems)
+    - [Singleton(Global Mutable Shared State)'s (possible) problems](#singletonglobal-mutable-shared-states-possible-problems)
     - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
     - [Avoid breaking modules](#avoid-breaking-modules)
       - [extension](#extension)
@@ -58,7 +58,7 @@
       - [Domain-Driven](#domain-driven)
       - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
     - [Functional core, Imperative share (Dependency Inversion)](#functional-core-imperative-share-dependency-inversion)
-    - [DTO Unified vs Segregated Models](#dto-unified-vs-segregated-models)
+    - [One common model vs Segregated models](#one-common-model-vs-segregated-models)
     - [Middle man anti-pattern](#middle-man-anti-pattern)
   - [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
   - [Separation pros/cons](#separation-proscons)
@@ -267,17 +267,16 @@ class LoginViewModel {
 }
 ```
 
-### Singleton(Global Mutable Shared State) possible problems
+### Singleton(Global Mutable Shared State)'s (possible) problems
 
 Singleton(Global Mutable Shared State) is convenient, but some problems could happen:
 
+It's not said that we must not use Singleton(Global Mutable Shared State) at all. For example, it could be fine when the dependency is stable, or even if it's a volatile dependency, it's used only in a proper place. The problem could cause by using volatile dependencies all over the place.
+
 - Their dependencies are hidden from clients. Clients can't see the dependencies.
-- Testing becomes more difficult. As described the above, it's likely that we have to setup and clean up the mocks in every tests in the long run. Also, we can not predict what happens in parallel tests(flaky tests).
+- Testing becomes more difficult. As described the above, it's likely that we have to setup and clean up the mocks in every tests in the long run(It's easy to forget). Also, we can not predict what happens in parallel tests(flaky tests).
 - It's hard to decouple them. Clients probably need to import all dependencies which Singleton(Global Mutable Shared State) depends.
 - We have to setup them before they're used.
-
-※ It's not said that we must not use Singleton(Global Mutable Shared State) at all. It could become a proper place if we need(have) to have only an instance in the app. The problem could use them all over the place.
-
 
 ### Depending on one shared concrete type tends to affect unrelated components
 
@@ -841,7 +840,7 @@ Side-effects (e.g., I/O, database writes, UI updates…) do need to happen, but 
 
 <img src="./images/functional_core.png" alt= "functional core" width="100%">
 
-### DTO Unified vs Segregated Models
+### One common model vs Segregated models
 
 All dependencies on one model leads to tremendous change all over the place. It disturbs parallel development(many conflicts).
 
@@ -940,7 +939,7 @@ let itemsCache = MemoryItemsCache()
 let cache = CachableItemsClient(decoratee: itemsClient, cache: itemsCache)
 ```
 
-`ItemsCache` is completely hidden from the client (It's good since we can hide implementation details).
+`ItemsCache` is completely hidden from the client (It's good since we can hide unnecessary implementation details).
 As one of functional approaches, we can use `Combine`.
 
 ```swift
@@ -981,7 +980,7 @@ let cachableItemsClient = httpClient
 
 The point is that we can achieve to
 
-- Express the flow by type explicitly
+- Express the flow by type explicitly `URL -> Data -> [Item] -> Void`
 - Separate it into pure and impure(contains side-effects) functions(CQS)
 
 ```swift
@@ -1004,6 +1003,7 @@ Separation is basically good, but we need to consider how much we do it with con
 ## Resources
 
 - [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
+- [dependency rejection](https://blog.ploeh.dk/2017/02/02/dependency-rejection/)
 - [Domain Event](https://martinfowler.com/eaaDev/DomainEvent.html)
 - [functional-core-imperative-shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell)
 - [Design Patterns: Elements of Reusable Object-Oriented Software 1st Edition](https://www.amazon.com/Design-Patterns-Object-Oriented-Addison-Wesley-Professional-ebook/dp/B000SEIBB8)
