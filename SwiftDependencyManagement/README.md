@@ -864,7 +864,134 @@ It's also applied to DI. If a parent class creates a child class which has its o
 
 ## From dependency injection to dependency rejection
 
-TBD
+In object-oriented program, DI is a useful tool since we can composite any functions without breaking its clients and also it expresses explicit dependency graph(mainly with constructor dependency injection).
+
+But in functional programming, there is another approach to manage dependencies. It's called "dependency rejection".
+
+A function(method, etc) takes input and produce output. They are direct. On the other hand, if it uses dependencies, it can be regarded as having indirect input and output. We can refactor it to produce direct output.
+
+For example, let's see the following example.
+
+```swift
+
+protocol HTTPClient {
+    func get(from url: URL, completion: @escaping (Result<Data, Error>) -> Void)
+}
+
+final class URLSessionHTTPClient: HTTPClient {
+    let session: URLSession
+    init(session: URLSession) {
+        self.session = session
+    }
+
+    func get(from url: URL, completion: @escaping (Result<Data, Error>) -> Void) {
+        session.dataTask(with: url) {_,_,_ in
+            //... some handling
+        }.resume()
+    }
+}
+
+protocol ItemsCache {
+    func save(_ items: [Item]) throws
+}
+
+protocol ItemsClient {
+    func fetchItems(completion: @escaping (Result<[Item], Error>) -> Void)
+}
+
+final class RemoteItemsClient: ItemsClient {
+    // ⚠️ using URLSession directly just for simplicity 
+    let urlSession: URLSession
+    init(urlSession: URLSession) {
+        self.urlSession = urlSession
+    }
+
+    func fetchItems(completion: @escaping (Result<[Item], Error>) -> Void) {
+        //... mapping Data to [Item]
+    }
+}
+
+final class CachableItemsClient: ItemsClient {
+    private let decoratee: ItemsClient
+    private let cache: ItemsCache
+    init(decoratee: ItemsClient, cache: ItemsCache) {
+        self.decoratee = decoratee
+        self.cache = cache
+    }
+    func fetchItems(completion: @escaping (Result<[Item], Error>) -> Void) {
+        decoratee.fetchItems { result in
+            guard let items = try? result.get() else {
+                completion(result)
+                return
+            }
+            do {
+                try self.cache.save(items)
+            } catch {
+                // ignore this time
+            }
+            completion(result)
+        }
+    }
+}
+
+let httpClient = URLSessionHTTPClient(session: .shared)
+let itemsClient = RemoteItemsClient(httpClient: httpClient)
+let itemsCache = MemoryItemsCache()
+let cache = CachableItemsClient(decoratee: itemsClient, cache: itemsCache)
+```
+
+`ItemsCache` is completely hidden from the client (It's good since we can hide implementation details).
+As one of functional approaches, we can use `Combine`.
+
+```swift
+import Combine
+
+extension HTTPClient {
+    func getPublisher(from url: URL) -> AnyPublisher<Data, Error> {
+        Deferred {
+            Future {
+                self.get(from: url, completion: $0)
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+}
+
+extension Publisher where Output == [Item] {
+    func cache(to cache: ItemsCache) -> AnyPublisher<Output, Failure> {
+        handleEvents(receiveOutput: { items in
+            do {
+                try cache.save(items)
+            } catch {
+                // ignore this time
+            }
+            cache.save(items)
+        }).eraseToAnyPublisher()
+    }
+}
+
+let httpClient = URLSessionHTTPClient(session: .shared)
+let itemsCache = MemoryItemsCache()
+let cachableItemsClient = httpClient
+    .getPublisher(from: URL(string: "https://api-server/items")!)
+    // map from data to [Item]
+    .tryMap { _ in return [] }
+    .cache(to: itemsCache)
+```
+
+The point is that we can achieve to
+
+- Express the flow by type explicitly
+- Separate it into pure and impure(contains side-effects) functions(CQS)
+
+```swift
+let cachableItemsClient = httpClient
+    .getPublisher(/* ... */) // impure
+    .tryMap {/* ... */} // pure
+    .cache(/* ... */) // impure
+```
+
+We can not say that which one is better. It depends on team's situation, preference, etc...
 
 ## Separation pros/cons
 
