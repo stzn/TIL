@@ -31,7 +31,13 @@
       - [Controllable Object Lifetime management](#controllable-object-lifetime-management)
       - [Explicit object graph](#explicit-object-graph)
     - [Where is composition root?](#where-is-composition-root)
-    - [Composition rules](#composition-rules)
+    - [Composer](#composer)
+      - [Composer rules](#composer-rules)
+      - [Navigation across modules](#navigation-across-modules)
+      - [Composer and dependency lifetime management](#composer-and-dependency-lifetime-management)
+      - [Singleton Lifestyle](#singleton-lifestyle)
+      - [Transient Lifestyle](#transient-lifestyle)
+      - [Scoped Lifestyle](#scoped-lifestyle)
     - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
     - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
   - [More consideration about DI](#more-consideration-about-di)
@@ -106,7 +112,7 @@ So, this is a **Volatile dependency**.
 
 ### Volatile dependencies
 
-Volatile Dependencies are dependencies that change frequently. It's advised to avoid coupling our code with them to avoid having to recompile/reimplement/retest/redeploy your code all the time.
+Volatile Dependencies are dependencies that change frequently. It's advised to avoid coupling our code with them to avoid having to recompile/reimplement/retest/redeploy our code all the time.
 
 - Introduce a requirement to set up and configure a runtime environment for the application (e.g. `URLSession`, File system)
 - Don’t yet exist, or is still in development(self-developing library)
@@ -379,9 +385,9 @@ It doesn't need to know where it comes from. It doesn't care about anything else
 
 To be more modular, we can use Adapter pattern.
 
-Adapter pattern enables components with incompatible interfaces to work together seamlessly. The purpose is to convert the interface of a component into another interface a client expects. It enables us to decouple components from complex dependencies. It is often implemented as a class, nothing stops you from following its principles to implement adapter functions.
+Adapter pattern enables components with incompatible interfaces to work together seamlessly. The purpose is to convert the interface of a component into another interface a client expects. It enables us to decouple components from complex dependencies. It is often implemented as a class, nothing stops us from following its principles to implement adapter functions.
 
-<img src="./images/modular_adapter.png.png" alt= "modular adapter" width="100%">
+<img src="./images/modular_adapter.png" alt= "modular adapter" width="100%">
 
 We have generic `ServerAPIClient` in the center, we have modules with only what they need and we implement the adapters.
 
@@ -496,7 +502,6 @@ The Composition Root usually doesn't have logic. Its responsibility is to instan
 Also, common misunderstanding point is that: 
 **The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module.**
 
-
 ### What are the merits of composition root?
 
 #### Make parallel development easier
@@ -511,7 +516,7 @@ Also we can do integration tests and acceptance tests since we can easily replac
 
 #### Controllable Object Lifetime management
 
-Only composition root knows when and how instances are created and released. Modules should not know whether lifecycle of other modules' instances(singleton, transient, and so on)  
+Only composition root knows when and how instances are created and released. Modules should not know whether lifecycle of other modules' instances(singleton, transient... described later)  
 
 Also we can control framework specific things (e.g. UI must add `weak` to avoid retain cycle, and so on). This is the Virtual Proxy Pattern. It depends on what we want to achieve, but we could understand our code base more since we can see what's happening in a collected areas(the Composition Root).
 
@@ -541,17 +546,74 @@ In the below image, the `SceneDelegate` centralizes the instantiation and compos
 <img src="./images/modular_composition_root.png" alt= "modular composition root" width="100%">
 
 
-### Composition rules
+### Composer
 
-Composers should only be used in the Composition Root
-Only Composers can use other Composers
-What that means is that you shouldn’t be interacting with composers anywhere in your codebase.
+Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called Composer. It’s an important part of the Composition Root.
+
+The Composer is often a DI Container, but it can also be any method that constructs object graphs manually. In swift, we would use manual dependency management in many cases.
+
+For example, we can define composers for each our module..
+
+<img src="./images/composition_root1.png" alt= "composition_root 1" width="100%">
+
+#### Composer rules
+
+Composers should only be used in the Composition Root. And only composers can use other composers. What that means is that we shouldn’t be interacting with composers anywhere else in our codebase.
+
+#### Navigation across modules
+
+In a large app, it's very important that we can develop each module separately. So, it's better not to bind modules each other since it could disturb our progress.
+
+For example, after login, we want to show an item list. We need to navigate from the login page to the list page. The simplest way to do that is to directly push to the list page.
+
+<img src="./images/composition_root2.png" alt= "composition_root 2" width="100%">
+
+But, there could be some problems.
+
+- If the list page is changed, it's probable that we need to change the login page too.
+- We have to manage the list page dependencies in the login page.
+- Moreover, whenever change which is unrelated to Login module is added to ItemList module, Login module is recompiled since it's import ItemList module.
+
+To avoid such problems, we can delegate the login event to the Composition Root and navigate to the list page from there.
+
+The above assumes that `SceneDelegate` manages navigation stack (It's the simplest way).
+
+<img src="./images/composition_root3.png" alt= "composition_root 3" width="100%">
+
+Of course, if we handle more complicated app, it's easy to make `SceneDelegate` quite messy. So, we can define new components to do navigation logics in the Composition Root like Flow, Coordinator, Router.
+
+#### Composer and dependency lifetime management
+
+As described in the [Controllable Object Lifetime management](#controllable-object-lifetime-management), the Composition Root(Composer) controls the lifetime of dependencies.
+
+The composer decides when instances are created, whether to share instances, it determines whether a dependency goes out of scope with a single consumer, or whether all consumers must go out of scope before the dependency can be released.
+
+Then, we need to think of the lifetime of the dependencies(= lifestyle). There are some lifestyle patterns.
+
+#### Singleton Lifestyle
+
+※ It's different from the Singleton design pattern.
+
+A single instance is perpetually reused. The resulting behavior is similar to the Singleton design pattern, but the structure is different. The Singleton Lifestyle does not provide a global access point. It can be referenced from the Composition Root. Using a shared instance is important for app efficiency like saving memory, battery, etc. But it's details, so feature modules should not know about it. 
+
+Note that, single lifestyle instances need to be thread-safe since it can be shared across many modules.
+
+
+#### Transient Lifestyle
+
+Another lifestyle is the Transient Lifestyle. A transient instance is created and destroyed as requested. It's not shared across modules, so we don't need to care about thread-safety. But be careful to use it since it's the least efficient way since it can cause huge instances.
+
+In many cases, we can safely exchange the Transient Lifestyle for a Scoped Lifestyle, where access to the Dependency is also guaranteed to be sequential[
+
+#### Scoped Lifestyle
+
+At most, one instance of each type is served per an implicitly or explicitly defined scope. We can reuse them only in the defined scope. For example, an instance can be alive during one process(OperationQueue, button tap action, etc).
 
 ### Does the Composition Root become too big?
 
-As seen in the above, it seems that if our application is big, the Composition Root could be too big to understand. But, the Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module. 
+Like the above, we can create several components in the Composition Root. The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module. 
 
-Rather, we should to be careful not being interspersed with subsequent application logic.
+In addition, we could define Factory to create a proper instance in each module. But be careful that we should use it only in the Composition Root.
 
 ### We don't need all dependencies should be initialized immediately
 
@@ -593,7 +655,7 @@ When composing small components, probably we try to create and use them in a agg
 
 Separating the instantiation of our views from the presentation/navigation will help us build more maintainable, extendable, replaceable, reusable, and testable components. The idea is to decouple ViewControllers when possible. Especially when they belong to different features.
 
-A class could handle all the transitions initially, but it can inflate the number of responsibilities the class has. So, we extract and encapsulate the view coordination responsibility in a new object responsible solely for that. For example, as you add more features and transitions to our app, we could breakdown the navigation into dedicated Flows or Coordinators in the Composition Root.
+A class could handle all the transitions initially, but it can inflate the number of responsibilities the class has. So, we extract and encapsulate the view coordination responsibility in a new object responsible solely for that. For example, as we add more features and transitions to our app, we could breakdown the navigation into dedicated Flows or Coordinators in the Composition Root.
 
 #### Factory does not reduce coupling
 
@@ -639,7 +701,7 @@ Instead of adding new methods in existing protocols, creating a new protocol or 
 
 The concept of Interception is simple: we want to be able to intercept the call between a consumer and a service, and to execute some code before or after the service is invoked. And we want to do so in such a way that neither the consumer nor the service has to change.
 
-Interception is the ability to intercept calls between two collaborating components in such a way that you can enrich or change the behavior of the Dependency without the need to change the two collaborators themselves.
+Interception is the ability to intercept calls between two collaborating components in such a way that we can enrich or change the behavior of the Dependency without the need to change the two collaborators themselves.
 
 ld not be possible without a polymorphic interface
 
@@ -996,9 +1058,9 @@ We can not say that which one is better. It depends on team's situation, prefere
 
 Separation is basically good, but we need to consider how much we do it with considering the following:
 
-1) Breaking down into more models/protocols may make your code more complex and harder to understand.
+1) Breaking down into more models/protocols may make our code more complex and harder to understand.
 
-2) Combining everything in one model/protocol may make your code harder to extend or reuse.
+2) Combining everything in one model/protocol may make our code harder to extend or reuse.
 
 ## Resources
 
