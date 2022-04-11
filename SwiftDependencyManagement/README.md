@@ -927,7 +927,8 @@ It's also applied to DI. If a parent class creates a child class which has its o
 
 In object-oriented program, DI is a useful tool since we can composite any functions without breaking its clients and also it expresses explicit dependency graph(mainly with constructor dependency injection).
 
-But in functional programming, there is another approach to manage dependencies. It's called "dependency rejection".
+But in functional programming, there is another approach to manage dependencies. It's called "dependency rejection".  
+(Rejection means that we don't need to inject our dependencies.)
 
 A function(method, etc) takes input and produce output. They are direct. On the other hand, if it uses dependencies, it can be regarded as having indirect input and output. We can refactor it to produce direct output.
 
@@ -1042,6 +1043,8 @@ let cachableItemsClient = httpClient
 
 The point is that we can achieve to
 
+- We can compose our dependencies in the Composition Root
+- We can use concrete infrastructure  components directly without creating abstract like protocol and they are replaceable
 - Express the flow by type explicitly `URL -> Data -> [Item] -> Void`
 - Separate it into pure and impure(contains side-effects) functions(CQS)
 
