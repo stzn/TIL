@@ -707,7 +707,11 @@ ld not be possible without a polymorphic interface
 
 #### The Decorator pattern
 
-The Decorator pattern attaches additional responsibilities to an object dynamically
+The Decorator pattern attaches additional responsibilities to an object dynamically. 
+
+The Decorator implementation should share the same interface as the decorated. This means that they should have the same method signature.
+
+That's polymorphism: a single interface/abstraction with many implementations.
 
 For example, we define a protocol and its implementation.
 
@@ -774,9 +778,9 @@ In this case, we can use the Decorator pattern.
 
 ```swift
 final class DispatchMainQueueDecorator<T> {
-    private let decoratee: T
- 	init(decoratee: T) {
- 		self.decoratee = decoratee
+    private let base: T
+ 	init(base: T) {
+ 		self.base = base
  	}
  	func dispatch(completion: @escaping () -> Void) {
  		guard Thread.isMainThread else {
@@ -788,7 +792,7 @@ final class DispatchMainQueueDecorator<T> {
 
 extension DispatchMainQueueDecorator: ItemsClient where T: ItemsClient {
     func fetchItems(completion: @escaping (Result<[Item], Error>) -> Void) {
-        decoratee.fetchItems { result in
+        base.fetchItems { result in
             self.dispatch {
                 completion(result)
             }
@@ -797,7 +801,7 @@ extension DispatchMainQueueDecorator: ItemsClient where T: ItemsClient {
 }
 
 // the Composition Root
-let itemViewModel = ItemViewModel(client: DispatchMainQueueDecorator(decoratee: APIClient()))
+let itemViewModel = ItemViewModel(client: DispatchMainQueueDecorator(base: APIClient()))
 ```
 
 It might not be the best solution. This could also need extra logics. The thing is that by using the Decorator pattern, we can avoid duplication of code all over the place and change behavior without affecting existing components. It depends on the situation(e.g. team's understanding and agreement)
@@ -837,14 +841,14 @@ protocol ItemsCache {
 }
 
 final class CachableItemsClient: ItemsClient {
-    private let decoratee: ItemsClient
+    private let base: ItemsClient
     private let cache: ItemsCache
-    init(decoratee: ItemsClient, cache: ItemsCache) {
-        self.decoratee = decoratee
+    init(base: ItemsClient, cache: ItemsCache) {
+        self.base = base
         self.cache = cache
     }
     func fetchItems(completion: @escaping (Result<[Item], Error>) -> Void) {
-        decoratee.fetchItems { result in
+        base.fetchItems { result in
             switch result {
             case .success(let items):
                 do {
@@ -974,14 +978,14 @@ final class RemoteItemsClient: ItemsClient {
 }
 
 final class CachableItemsClient: ItemsClient {
-    private let decoratee: ItemsClient
+    private let base: ItemsClient
     private let cache: ItemsCache
-    init(decoratee: ItemsClient, cache: ItemsCache) {
-        self.decoratee = decoratee
+    init(base: ItemsClient, cache: ItemsCache) {
+        self.base = base
         self.cache = cache
     }
     func fetchItems(completion: @escaping (Result<[Item], Error>) -> Void) {
-        decoratee.fetchItems { result in
+        base.fetchItems { result in
             guard let items = try? result.get() else {
                 completion(result)
                 return
@@ -999,7 +1003,7 @@ final class CachableItemsClient: ItemsClient {
 let httpClient = URLSessionHTTPClient(session: .shared)
 let itemsClient = RemoteItemsClient(httpClient: httpClient)
 let itemsCache = MemoryItemsCache()
-let cache = CachableItemsClient(decoratee: itemsClient, cache: itemsCache)
+let cache = CachableItemsClient(base: itemsClient, cache: itemsCache)
 ```
 
 `ItemsCache` is completely hidden from the client (It's good since we can hide unnecessary implementation details).
