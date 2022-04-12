@@ -46,6 +46,7 @@
     - [Create a good abstraction](#create-a-good-abstraction)
     - [short code　≠ clean dependencies](#short-code-clean-dependencies)
     - [Restrict from creating and using dependencies in the same class](#restrict-from-creating-and-using-dependencies-in-the-same-class)
+      - [Middle man anti-pattern](#middle-man-anti-pattern)
     - [Transition via delegate or closure](#transition-via-delegate-or-closure)
       - [Factory does not reduce coupling](#factory-does-not-reduce-coupling)
     - [Add a new method to an existing protocol should be considered a red flag](#add-a-new-method-to-an-existing-protocol-should-be-considered-a-red-flag)
@@ -61,11 +62,11 @@
       - [Cache(Example)](#cacheexample)
       - [Cross-cutting concerns](#cross-cutting-concerns)
       - [The Decorator pattern and code duplication(DRY violation)](#the-decorator-pattern-and-code-duplicationdry-violation)
-      - [Domain-Driven](#domain-driven)
+      - [Event driven design](#event-driven-design)
       - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
     - [Functional core, Imperative share (Dependency Inversion)](#functional-core-imperative-share-dependency-inversion)
     - [One common model vs Segregated models](#one-common-model-vs-segregated-models)
-    - [Middle man anti-pattern](#middle-man-anti-pattern)
+    - [Domain model and DI](#domain-model-and-di)
   - [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
   - [Separation pros/cons](#separation-proscons)
   - [Resources](#resources)
@@ -131,7 +132,12 @@ Inject dependencies when constructing an object. It guarantees the existence of 
 
 ### Method injection
 
-if dependency can vary with each method call or consumer of the dependency can vary on each call ex. used in each entity
+If dependencies can vary with each method call or consumer of the dependency can vary on each call ex. used in each entity see: [Domain model and DI](#domain-model-and-di)
+
+Method Injection is different from other patterns the injection happens dynamically at invocation. This allows the caller to provide an operation-specific context.
+
+- Enables the caller to provide operation-specific context.
+- Enables injecting dependencies into data-centric objects
 
 ### Property injection
 
@@ -651,6 +657,26 @@ By hiding concrete implementations from an interface, it is open for extension a
 
 When composing small components, probably we try to create and use them in a aggregation class. The main problem is that, as long as it creates its collaborators, it needs to provide their dependencies. And many times it just passes the dependencies to the collaborators. It' an anti-pattern called Middle man.
 
+```Swift
+final class ListViewController: UIViewController {
+    ...
+
+    func showDetail(with item: Item) {
+
+    }
+}
+
+```
+
+#### Middle man anti-pattern
+
+If an object method is simply forwarding a method to another object without any extra logic, it could be an anti-pattern called middle man.
+It's also applied to DI. If a parent class creates a child class which has its own dependencies not used in the parent, the parent has to hold unnecessary dependencies and just passes them to the child. Then:
+
+- It could cause constructor over-injection(too many dependencies) in the parent and it makes the parent overcomplicated.
+- If the child changes its dependencies, the parent will have to change too
+
+
 ### Transition via delegate or closure
 
 Separating the instantiation of our views from the presentation/navigation will help us build more maintainable, extendable, replaceable, reusable, and testable components. The idea is to decouple ViewControllers when possible. Especially when they belong to different features.
@@ -773,6 +799,7 @@ There could be many problems:
 - We need to do this threading all over the place(a lot of duplicate code)
 - If `APIClient` is changed not to work on background thread, it could cause sweeping change in many modules
 - We can't catch where we handle logics on the main thread
+- On testing, `DispatchQueue.main.async` closure disturbs direct assertions since it run after the test finished, then we have to use `expectation` and wait for the result  in the closure.
 
 In this case, we can use the Decorator pattern.
 
@@ -882,7 +909,7 @@ If we need to observe a cross-cutting concern in several different clients at on
 For example, if we want to add an other implementation of `Repository`(e.g. `ItemRepository`), we need to add a new `LoggingRepository` to the `ItemRepository`, too.
 
 
-#### Domain-Driven
+#### Event driven design
 
 Instead, we can use an event-driven design.
 
@@ -919,13 +946,16 @@ Creating separate model representations helps us keep the code concise and easy 
 When we keep them within the same module, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick conveniences (but costly and debt in the end). 
 If we want to prevent such unwanted dependency accidents, separate modules. Also, if modules reused in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but don’t be discouraged from doing so. When done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
 
-### Middle man anti-pattern
+### Domain model and DI
 
-If an object method is simply forwarding a method to another object without any extra logic, it could be an anti-pattern called middle man.
-It's also applied to DI. If a parent class creates a child class which has its own dependencies not used in the parent, the parent has to hold unnecessary dependencies and just passes them to the child. Then:
+The domain model could do the operation and enforce business rules(e.g. keeping items cache for a day).
 
-- It could cause constructor over-injection(too many dependencies) in the parent and it makes the parent overcomplicated.
-- If the child changes its dependencies, the parent will have to change too
+Injecting functionality into domain models can lead to an anti-pattern called [Anemic Domain Model](https://martinfowler.com/bliki/AnemicDomainModel.html).
+
+Domain model often prefers method Injection to constructor injection does not match with domain model since:
+
+- It's used in many ways and all of its dependencies could not be always necessary (e.g. it could be used in some methods). Especially it complicates test setup
+- It is not always created in the Composition Root and difficult to manage its dependencies, also via method injection, we can call proper method in the proper components (which have proper dependencies)
 
 ## From dependency injection to dependency rejection
 
