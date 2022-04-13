@@ -7,14 +7,32 @@
     - [Stable dependencies](#stable-dependencies)
     - [Volatile dependencies](#volatile-dependencies)
   - [Some ways of DI](#some-ways-of-di)
+    - [Composition Root](#composition-root)
+    - [What are the merits of composition root?](#what-are-the-merits-of-composition-root)
+      - [Make parallel development easier](#make-parallel-development-easier)
+      - [Testability](#testability)
+      - [Controllable Object Lifetime management](#controllable-object-lifetime-management)
+      - [Explicit object graph](#explicit-object-graph)
+    - [Where is composition root?](#where-is-composition-root)
+      - [Composer](#composer)
+      - [Composer rules](#composer-rules)
+    - [Composition Root and navigation across modules](#composition-root-and-navigation-across-modules)
+    - [Composition Root and dependency lifetime management](#composition-root-and-dependency-lifetime-management)
+      - [Singleton Lifestyle](#singleton-lifestyle)
+      - [Transient Lifestyle](#transient-lifestyle)
+      - [Scoped Lifestyle](#scoped-lifestyle)
+    - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
+    - [Do　 we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
+    - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
     - [Constructor injection](#constructor-injection)
     - [Method injection](#method-injection)
-    - [Property injection](#property-injection)
+    - [Property injection(Setter injection)](#property-injectionsetter-injection)
+    - [Which one do we choose?](#which-one-do-we-choose)
   - [Some stages of DI](#some-stages-of-di)
     - [The Singleton pattern (from the Design Patterns book of GOF)](#the-singleton-pattern-from-the-design-patterns-book-of-gof)
     - [Swift singleton](#swift-singleton)
     - [Singleton and test](#singleton-and-test)
-      - [Property injection](#property-injection-1)
+      - [Property injection](#property-injection)
     - [Global Mutable Shared State](#global-mutable-shared-state)
     - [Singleton(Global Mutable Shared State)'s (possible) problems](#singletonglobal-mutable-shared-states-possible-problems)
     - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
@@ -23,23 +41,6 @@
       - [Dependency Inversion](#dependency-inversion)
     - [Adapter Pattern](#adapter-pattern)
   - [Don't skip stages](#dont-skip-stages)
-  - [Composition Root](#composition-root)
-    - [What is The Composition Root?](#what-is-the-composition-root)
-    - [What are the merits of composition root?](#what-are-the-merits-of-composition-root)
-      - [Make parallel development easier](#make-parallel-development-easier)
-      - [Testability](#testability)
-      - [Controllable Object Lifetime management](#controllable-object-lifetime-management)
-      - [Explicit object graph](#explicit-object-graph)
-    - [Where is composition root?](#where-is-composition-root)
-    - [Composer](#composer)
-      - [Composer rules](#composer-rules)
-      - [Navigation across modules](#navigation-across-modules)
-      - [Composer and dependency lifetime management](#composer-and-dependency-lifetime-management)
-      - [Singleton Lifestyle](#singleton-lifestyle)
-      - [Transient Lifestyle](#transient-lifestyle)
-      - [Scoped Lifestyle](#scoped-lifestyle)
-    - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
-    - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
   - [More consideration about DI](#more-consideration-about-di)
     - [Injection Constructor should be simple (don't add behavior)](#injection-constructor-should-be-simple-dont-add-behavior)
     - [Constructor Over-injection is code smell](#constructor-over-injection-is-code-smell)
@@ -84,7 +85,6 @@
 - Low coupling, high cohesion
 - Allow independent development(and development), and testing in isolation/parallel)
 
-
 ## Modular design goal
 
 - Understandable
@@ -124,29 +124,206 @@ Volatile Dependencies are dependencies that change frequently. It's advised to a
 
 ※ Some ways which manage dependencies are introduced, but there is nothing wrong with them. It's just a level of abstraction. Each of them has pros/cons. It depends on what we want to achieve and it's important to think of our situations.
 
+
+### Composition Root
+
+> A Composition Root is a (preferably) unique location in an application where modules are composed together.  
+> [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
+
+It is near the entry point of the application.
+
+The key point to is **Where should we compose object graphs?**
+
+When creating independent modules, they should not have any reference to components that belong to another module.
+
+For example, if we want to decouple a Login module from a Items module, they should not reference each other. For instance, a component in the Login module should not instantiate a component from the Items module.
+
+So, the idea is to create a Main module(mostly the app target) responsible for instantiating and composing all independent modules in a centralized place. This is the Composition Root.
+
+If after login, we want to transition to the items screen, this transition can be delegated through an abstraction that will be implemented by a component in the Composition Root. Then, the modules are independent of each other. 
+
+Also, we could easily replace the transition to the Friends screen after login. We can make those changes without affecting the Login or the Items module by simply changing the composition from the Composition Root.
+
+Centralizing our app’s instantiation and composition simplifies drastically the development and management of modules, components, and their dependencies.
+
+The Composition Root usually doesn't have logic. Its responsibility is to instantiate and compose all the modules.
+
+Also, common misunderstanding point is that: 
+**The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module.**
+
+### What are the merits of composition root?
+
+#### Make parallel development easier
+
+Each modules are independent. They don't know anything about other modules. Even when we want to add new feature, we don't need to touch other modules.
+
+#### Testability
+
+Each feature module can be tested independently.  
+We can do unit tests for each of them(including snapshot test= UI regression test).  
+Also we can do integration tests and acceptance tests since we can easily replace dependencies with mocks by composing modules like the Composition Root.
+
+#### Controllable Object Lifetime management
+
+Only Composition Root knows when and how instances are created and released. Modules should not know whether lifecycle of other modules' instances(singleton, transient... described later)  
+
+Also we can control framework specific things (e.g. UI must add `weak` to avoid retain cycle, and so on). This is the Virtual Proxy Pattern. It depends on what we want to achieve, but we could understand our code base more since we can see what's happening in a collected areas(the Composition Root).
+
+Object instantiation is a responsibility that should ideally take place in a single place, rather than scattered around the codebase.
+Otherwise, if at some point some class needs more dependencies, we would have to change the other class which creates it to provide those dependencies. That's a violation of the Open/Closed principle (a change in one component should not need a change in another component). It could affect parallel development.
+
+#### Explicit object graph  
+
+Composition root is the single point which create instances and compose them, so we can confirm all dependencies from the Composition Root explicitly.
+※ It does not mean that Composition root is a class or a method.
+
+### Where is composition root?
+
+It's said,
+
+> As close as possible to the application's entry point.
+
+In iOS apps, the `UISceneDelegate.willConnectToSession` or `@main` can be considered the app entry point in single window.
+
+The Composition Root is the most concrete place in our app as it instantiates the concrete components for the app’s composition. the Composition Root is an application detail. Thus, only applications should have a the Composition Root.
+(In reverse, frameworks shouldn’t need the Composition Roots as they shouldn’t hold or depend on application-specific details)
+
+It only composes modules and not reusable and the only one who knows every concrete implementation.
+
+In the below image, the `SceneDelegate` centralizes the instantiation and composition of our app in a single class.
+
+<img src="./images/modular_composition_root.png" alt= "modular composition root" width="100%">
+
+
+#### Composer
+
+Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called Composer. It’s an important part of the Composition Root.
+
+Composer could be a DI Container, but it can also be any method that constructs object graphs manually. 
+※ In Swift world, I think we would use manual dependency management in many cases.
+
+For example, we can define composers for each our module..
+
+<img src="./images/composition_root1.png" alt= "composition_root 1" width="100%">
+
+#### Composer rules
+
+Composers should only be used in the Composition Root. And only composers can use other composers. What that means is that we shouldn’t be interacting with composers anywhere else in our codebase.
+
+### Composition Root and navigation across modules
+
+In a large app, it's very important that we can develop each module separately. So, it's better not to bind modules each other since it could disturb our progress.
+
+For example, after login, we want to show an item list. We need to navigate from the login page to the list page. The simplest way to do that is to directly push to the list page.
+
+<img src="./images/composition_root2.png" alt= "composition_root 2" width="100%">
+
+But, there could be some problems.
+
+- If the list page is changed, it's probable that we need to change the login page too.
+- We have to manage the list page dependencies in the login page.
+- Moreover, whenever change which is unrelated to Login module is added to ItemList module, Login module is recompiled since it's import ItemList module.
+
+To avoid such problems, we can delegate the login event to the Composition Root and navigate to the list page from there.
+
+The above assumes that `SceneDelegate` manages navigation stack (It's the simplest way).
+
+<img src="./images/composition_root3.png" alt= "composition_root 3" width="100%">
+
+Of course, if we handle more complicated app, it's easy to make `SceneDelegate` quite messy. So, we can define new components to do navigation logics in the Composition Root like Flow, Coordinator, Router.
+
+### Composition Root and dependency lifetime management
+
+As described in the [Controllable Object Lifetime management](#controllable-object-lifetime-management), the Composition Root(Composer) controls the lifetime of dependencies.
+
+The Composition Root decides when instances are created, whether to share instances, it determines whether a dependency goes out of scope with a single consumer, or whether all consumers must go out of scope before the dependency can be released.
+
+Then, we need to think of the lifetime of the dependencies(= lifestyle). There are some lifestyle patterns.
+
+#### Singleton Lifestyle
+
+※ It's different from the Singleton design pattern.
+
+A single instance is perpetually reused. The resulting behavior is similar to the Singleton design pattern, but the structure is different. The Singleton Lifestyle does not provide a global access point. It can be referenced from the Composition Root. Using a shared instance is important for app efficiency like saving memory, battery, etc. But it's details, so feature modules should not know about it. 
+
+Note that, single lifestyle instances need to be thread-safe since it can be shared across many modules.
+
+
+#### Transient Lifestyle
+
+Another lifestyle is the Transient Lifestyle. A transient instance is created and destroyed as requested. It's not shared across modules, so we don't need to care about thread-safety. But be careful to use it since it's the least efficient way since it can cause huge instances.
+
+In many cases, we can safely exchange the Transient Lifestyle for a Scoped Lifestyle, where access to the Dependency is also guaranteed to be sequential[
+
+#### Scoped Lifestyle
+
+At most, one instance of each type is served per an implicitly or explicitly defined scope. We can reuse them only in the defined scope. For example, an instance can be alive during one process(OperationQueue, button tap action, etc).
+
+### Does the Composition Root become too big?
+
+Like the above, we can create several components in the Composition Root. The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module. 
+
+In addition, we could define Factory to create a proper instance in each module. But be careful that we should use it only in the Composition Root.
+
+### Do　 we need to inject so much dependencies in Composition Root?
+
+Apparently yes. But in facet, it's often said that we have many implicit dependencies. So, actual number of dependencies are not different. The Composition Root makes them explicit and we can get a clear dependency graph.
+
+
+### We don't need all dependencies should be initialized immediately
+
+Instantiating the concrete components does not mean that all dependencies are needed to load immediately. We can lazily load them if we need(e.g. using closures to provide dependencies's instances).
+
 ### Constructor injection
 
-Prefer to use it as much as possible.
+It is the act of statically defining the list of required Dependencies by specifying them as parameters to the class’s constructor.
+
+It's the most preferable way and we should use it as much as possible.
 
 Inject dependencies when constructing an object. It guarantees the existence of dependencies when instantiated and can eliminate unnecessary optionality and mutability. Also, client of the object can understand the dependencies explicitly.
 
 ### Method injection
 
-If dependencies can vary with each method call or consumer of the dependency can vary on each call ex. used in each entity see: [Domain model and DI](#domain-model-and-di)
+It supplies a consumer with dependencies by passing it as method argument on a method called.
 
-Method Injection is different from other patterns the injection happens dynamically at invocation. This allows the caller to provide an operation-specific context.
+It's useful when...
 
-- Enables the caller to provide operation-specific context.
+- Dependencies can vary with each method call e.g. [Domain model and DI](#domain-model-and-di)
+- A consumer of the dependency can vary on each call e.g. runtime information like `Date()` it changes every time
+
+It is different from other patterns the injection happens dynamically at invocation. This allows the caller to provide an operation-specific context.
+
+- Enables the caller to provide operation-specific context
 - Enables injecting dependencies into data-centric objects
 
-### Property injection
+On the other hand, it needs to add limited applicability to public API. This means that adding not always necessary dependencies.
 
-Prefer not to use this without specific reasons like:
+
+It is unsuitable when used within the Composition Root([Composition Root](#composition-root)). Within a Composition Root, it can initialize a previously constructed class with its dependencies. Doing so, however, leads to [Temporal Coupling](https://blog.ploeh.dk/2011/05/24/DesignSmellTemporalCoupling/), so it’s highly discouraged.
+
+
+### Property injection(Setter injection)
+
+It allows a "local" default to be replaced via a public settable property.
+
+※ "local" means "not across module boundaries". 
+
+If we have a good local default, but still want to open for extensibility. It's useful.
+
+Constructor injection is more preferable and the usage should be limited like:
 
 - Legacy codes which are difficult to do Constructor injection.
 - Dealing with 3rd-party frameworks that force us to do that. (e.g. UIKit's UIViewController/UIView in Storyboards before iOS13)
 - with delegate/data source that can be swapped. For example, UITableView (and UIView's in general) can be expensive to create/layout/render/destroy, so it's a good advise to reuse the instance when re-rendering the screen.
 - when we don't have the property to inject when we create our instance (e.g., a property that will only be available after some asynchronous operation). ※This is often a design flaw and should raise some warnings in our heads to improve the design.
+
+※ We need to be careful not to forget to supply the dependencies. This is Temporal Coupling.
+
+### Which one do we choose?
+
+In most cases, default choice should be constructor injection, but there are situations where one of the other patterns affords a better alternative.
+
+[Injection Pattern](./images/injection_patterns.png)
 
 ## Some stages of DI
 
@@ -168,7 +345,7 @@ final class ServerAPIClient {
 let client = ServerAPIClient.shared
 ```
 
-※ The book said static `getInstance` method was needed, but in Swift, `static let` is constant and lazy loaded, so we don't need it. Also it said we shouldn't make the class `final` since a Singleton may be extended in the future and allow subclassing to add methods. But in Swift we can use extensions for the purpose. if we aren't going to override existing methods, we can add `final`.
+※ The Design pattern book said static `getInstance` method was needed, but in Swift, `static let` is constant and lazy loaded, so we don't need it. Also it said we shouldn't make the class `final` since a Singleton may be extended in the future and allow subclassing to add methods. But in Swift we can use extensions for the purpose. if we aren't going to override existing methods, we can add `final`.
 
 ```swift
 extension ServerAPIClient {}
@@ -475,155 +652,6 @@ We should not start with complex design. When needed, just understand how we can
 The point is that we need to know where to go to the next step when the problem occurs.
 
 
-## Composition Root
-
-As described in the above, composing components with their dependencies in the main module is key point to achieve a good modular design.
-
-But, there is a question.
-
-**Where should we compose object graphs?**
-
-There is an important concept called **Composition Root** which we can do it.
-
-
-### What is The Composition Root?
-
-> A Composition Root is a (preferably) unique location in an application where modules are composed together.  
-> [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
-
-When creating independent modules, they should not have any reference to components that belong to another module.
-
-For example, if we want to decouple a Login module from a Items module, they should not reference each other. For instance, a component in the Login module should not instantiate a component from the Items module.
-
-So, the idea is to create a Main module(mostly the app target) responsible for instantiating and composing all independent modules in a centralized place. This is the Composition Root.
-
-If after login, we want to transition to the items screen, this transition can be delegated through an abstraction that will be implemented by a component in the Composition Root. Then, the modules are independent of each other. 
-
-Also, we could easily replace the transition to the Friends screen after login. We can make those changes without affecting the Login or the Items module by simply changing the composition from the Composition Root.
-
-Centralizing our app’s instantiation and composition simplifies drastically the development and management of modules, components, and their dependencies.
-
-The Composition Root usually doesn't have logic. Its responsibility is to instantiate and compose all the modules.
-
-Also, common misunderstanding point is that: 
-**The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module.**
-
-### What are the merits of composition root?
-
-#### Make parallel development easier
-
-Each modules are independent. They don't know anything about other modules. Even when we want to add new feature, we don't need to touch other modules.
-
-#### Testability
-
-Each feature module can be tested independently.  
-We can do unit tests for each of them(including snapshot test= UI regression test).  
-Also we can do integration tests and acceptance tests since we can easily replace dependencies with mocks by composing modules like the Composition Root.
-
-#### Controllable Object Lifetime management
-
-Only composition root knows when and how instances are created and released. Modules should not know whether lifecycle of other modules' instances(singleton, transient... described later)  
-
-Also we can control framework specific things (e.g. UI must add `weak` to avoid retain cycle, and so on). This is the Virtual Proxy Pattern. It depends on what we want to achieve, but we could understand our code base more since we can see what's happening in a collected areas(the Composition Root).
-
-Object instantiation is a responsibility that should ideally take place in a single place, rather than scattered around the codebase.
-Otherwise, if at some point some class needs more dependencies, we would have to change the other class which creates it to provide those dependencies. That's a violation of the Open/Closed principle (a change in one component should not need a change in another component). It could affect parallel development.
-
-#### Explicit object graph  
-
-Composition root is the single point which create instances and compose them, so we can confirm all dependencies from the Composition Root explicitly.
-※ It does not mean that Composition root is a class or a method.
-
-### Where is composition root?
-
-It's said,
-
-> As close as possible to the application's entry point.
-
-In iOS apps, the `UISceneDelegate.willConnectToSession` or `@main` can be considered the app entry point in single window.
-
-The Composition Root is the most concrete place in our app as it instantiates the concrete components for the app’s composition. the Composition Root is an application detail. Thus, only applications should have a the Composition Root.
-(In reverse, frameworks shouldn’t need the Composition Roots as they shouldn’t hold or depend on application-specific details)
-
-It only composes modules and not reusable and the only one who knows every concrete implementation.
-
-In the below image, the `SceneDelegate` centralizes the instantiation and composition of our app in a single class.
-
-<img src="./images/modular_composition_root.png" alt= "modular composition root" width="100%">
-
-
-### Composer
-
-Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called Composer. It’s an important part of the Composition Root.
-
-The Composer is often a DI Container, but it can also be any method that constructs object graphs manually. In swift, we would use manual dependency management in many cases.
-
-For example, we can define composers for each our module..
-
-<img src="./images/composition_root1.png" alt= "composition_root 1" width="100%">
-
-#### Composer rules
-
-Composers should only be used in the Composition Root. And only composers can use other composers. What that means is that we shouldn’t be interacting with composers anywhere else in our codebase.
-
-#### Navigation across modules
-
-In a large app, it's very important that we can develop each module separately. So, it's better not to bind modules each other since it could disturb our progress.
-
-For example, after login, we want to show an item list. We need to navigate from the login page to the list page. The simplest way to do that is to directly push to the list page.
-
-<img src="./images/composition_root2.png" alt= "composition_root 2" width="100%">
-
-But, there could be some problems.
-
-- If the list page is changed, it's probable that we need to change the login page too.
-- We have to manage the list page dependencies in the login page.
-- Moreover, whenever change which is unrelated to Login module is added to ItemList module, Login module is recompiled since it's import ItemList module.
-
-To avoid such problems, we can delegate the login event to the Composition Root and navigate to the list page from there.
-
-The above assumes that `SceneDelegate` manages navigation stack (It's the simplest way).
-
-<img src="./images/composition_root3.png" alt= "composition_root 3" width="100%">
-
-Of course, if we handle more complicated app, it's easy to make `SceneDelegate` quite messy. So, we can define new components to do navigation logics in the Composition Root like Flow, Coordinator, Router.
-
-#### Composer and dependency lifetime management
-
-As described in the [Controllable Object Lifetime management](#controllable-object-lifetime-management), the Composition Root(Composer) controls the lifetime of dependencies.
-
-The composer decides when instances are created, whether to share instances, it determines whether a dependency goes out of scope with a single consumer, or whether all consumers must go out of scope before the dependency can be released.
-
-Then, we need to think of the lifetime of the dependencies(= lifestyle). There are some lifestyle patterns.
-
-#### Singleton Lifestyle
-
-※ It's different from the Singleton design pattern.
-
-A single instance is perpetually reused. The resulting behavior is similar to the Singleton design pattern, but the structure is different. The Singleton Lifestyle does not provide a global access point. It can be referenced from the Composition Root. Using a shared instance is important for app efficiency like saving memory, battery, etc. But it's details, so feature modules should not know about it. 
-
-Note that, single lifestyle instances need to be thread-safe since it can be shared across many modules.
-
-
-#### Transient Lifestyle
-
-Another lifestyle is the Transient Lifestyle. A transient instance is created and destroyed as requested. It's not shared across modules, so we don't need to care about thread-safety. But be careful to use it since it's the least efficient way since it can cause huge instances.
-
-In many cases, we can safely exchange the Transient Lifestyle for a Scoped Lifestyle, where access to the Dependency is also guaranteed to be sequential[
-
-#### Scoped Lifestyle
-
-At most, one instance of each type is served per an implicitly or explicitly defined scope. We can reuse them only in the defined scope. For example, an instance can be alive during one process(OperationQueue, button tap action, etc).
-
-### Does the Composition Root become too big?
-
-Like the above, we can create several components in the Composition Root. The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module. 
-
-In addition, we could define Factory to create a proper instance in each module. But be careful that we should use it only in the Composition Root.
-
-### We don't need all dependencies should be initialized immediately
-
-Instantiating the concrete components does not mean that all dependencies are needed to load immediately. We can lazily load them if we need(e.g. using closures to provide dependencies's instances).
 
 ## More consideration about DI
 
@@ -1103,8 +1131,9 @@ Separation is basically good, but we need to consider how much we do it with con
 
 - [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
 - [dependency rejection](https://blog.ploeh.dk/2017/02/02/dependency-rejection/)
+- [Dependency Injection Principles, Practices, and Patterns 1st Edition](https://www.amazon.com/Dependency-Injection-Principles-Practices-Patterns-ebook-dp-B09783WN5C/dp/B09783WN5C)
+- [Design Patterns: Elements of Reusable Object-Oriented Software 1st Edition](https://www.amazon.com/Design-Patterns-Object-Oriented-Addison-Wesley-Professional-ebook/dp/B000SEIBB8)
 - [Domain Event](https://martinfowler.com/eaaDev/DomainEvent.html)
 - [functional-core-imperative-shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell)
-- [Design Patterns: Elements of Reusable Object-Oriented Software 1st Edition](https://www.amazon.com/Design-Patterns-Object-Oriented-Addison-Wesley-Professional-ebook/dp/B000SEIBB8)
-- [Refactoring: Improving the Design of Existing Code (Addison-Wesley Signature Series (Fowler)) 2nd Edition](https://www.amazon.com/Refactoring-Improving-Existing-Addison-Wesley-Signature-ebook/dp/B07LCM8RG2)
-- [Dependency Injection Principles, Practices, and Patterns 1st Edition](https://www.amazon.com/Dependency-Injection-Principles-Practices-Patterns-ebook-dp-B09783WN5C/dp/B09783WN5C)
+- [Refactoring: Improving the Design of Existing Code (Addison-Wesley Signature Series (Fowler)) 2nd Edition](https://www.amazon.com/Refactoring-Improving-Existing-Addison-Wesley-Signature-ebook/- [Temporal Coupling](https://blog.ploeh.dk/2011/05/24/DesignSmellTemporalCoupling/)
+dp/B07LCM8RG2)
