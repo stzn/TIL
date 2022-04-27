@@ -6,7 +6,7 @@
   - [Two kinds of dependencies](#two-kinds-of-dependencies)
     - [Stable dependencies](#stable-dependencies)
     - [Volatile dependencies](#volatile-dependencies)
-  - [Some ways of DI](#some-ways-of-di)
+  - [DI patterns](#di-patterns)
     - [Composition Root](#composition-root)
     - [What are the merits of composition root?](#what-are-the-merits-of-composition-root)
       - [Make parallel development easier](#make-parallel-development-easier)
@@ -120,10 +120,9 @@ Volatile Dependencies are dependencies that change frequently. It's advised to a
 - Aren’t installed on all machines in the development organization(= optional)
 - Contain nondeterministic behavior(e.g. `Date`)
 
-## Some ways of DI
+## DI patterns
 
-※ Some ways which manage dependencies are introduced, but there is nothing wrong with them. It's just a level of abstraction. Each of them has pros/cons. It depends on what we want to achieve and it's important to think of our situations.
-
+※ There is nothing wrong with them. It's just a level of abstraction. Each of them has pros/cons. It depends on what we want to achieve and it's important to think of our situations.
 
 ### Composition Root
 
