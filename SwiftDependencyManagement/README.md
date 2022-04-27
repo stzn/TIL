@@ -14,7 +14,8 @@
       - [Controllable Object Lifetime management](#controllable-object-lifetime-management)
       - [Explicit object graph](#explicit-object-graph)
     - [Where is composition root?](#where-is-composition-root)
-      - [Composer](#composer)
+      - [Composition Root should not be public](#composition-root-should-not-be-public)
+    - [Composer](#composer)
       - [Composer rules](#composer-rules)
     - [Composition Root and navigation across modules](#composition-root-and-navigation-across-modules)
     - [Composition Root and dependency lifetime management](#composition-root-and-dependency-lifetime-management)
@@ -194,7 +195,14 @@ In the below image, the `SceneDelegate` centralizes the instantiation and compos
 <img src="./images/modular_composition_root.png" alt= "modular composition root" width="100%">
 
 
-#### Composer
+#### Composition Root should not be public
+
+The Composition Root is the root of the object graph. Thus, it and its components shouldn’t be referenced by other modules.
+
+Making sure the Composition Root types are not public is a great way to enforce such rules, as the project wouldn’t even compile if another module references the Composition Root.
+
+
+### Composer
 
 Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called Composer. It’s an important part of the Composition Root.
 
