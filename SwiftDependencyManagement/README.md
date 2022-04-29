@@ -132,6 +132,8 @@ Volatile Dependencies are dependencies that change frequently. It's advised to a
 
 It is near the entry point of the application.
 
+It is an application detail. Thus, only applications should have a Composition Root, not frameworks.
+
 The key point to is **Where should we compose object graphs?**
 
 When creating independent modules, they should not have any reference to components that belong to another module.
