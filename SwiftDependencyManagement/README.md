@@ -3,6 +3,8 @@
 - [How can we manage dependencies?](#how-can-we-manage-dependencies)
   - [Some aspects of good architecture](#some-aspects-of-good-architecture)
   - [Modular design goal](#modular-design-goal)
+  - [Decoupling business logics(rules) from any framework implementations](#decoupling-business-logicsrules-from-any-framework-implementations)
+    - [Dependency Inversion](#dependency-inversion)
   - [Two kinds of dependencies](#two-kinds-of-dependencies)
     - [Stable dependencies](#stable-dependencies)
     - [Volatile dependencies](#volatile-dependencies)
@@ -40,7 +42,7 @@
     - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
     - [Avoid breaking modules](#avoid-breaking-modules)
       - [extension](#extension)
-      - [Dependency Inversion](#dependency-inversion)
+      - [Dependency Inversion](#dependency-inversion-1)
     - [Adapter Pattern](#adapter-pattern)
   - [Don't skip stages](#dont-skip-stages)
   - [More consideration about DI](#more-consideration-about-di)
@@ -98,6 +100,25 @@
 - Scalable
 - Easy to improve
 - Easy to refactor
+
+## Decoupling business logics(rules) from any framework implementations
+
+- Business logics(rules): **what** the system do
+- Framework implementations: **how** to do
+
+The dependency should be from the framework to the business logic since the "how to do" needs to conform to the "what to do" and "what" is agnostic of "how".
+
+This difference is very important to achieve the modular design goal
+
+-  A clear separation of concerns enables us to create decentralized components that are agnostic of the internals of their collaborators and have access only to essential-for-their-functionality behaviors
+- It makes changes in the codebase easier and cheaper, enabling the team to welcome new requirements
+- It makes the codebase more resilient as it decreases the number of places that can break when a code change is required(avoiding component, modular and even systemic level break)
+
+### Dependency Inversion
+
+To achieve it, Dependency Inversion is essential. It means that instead of depending on framework requirements, we make the framework depend on our needs.
+
+As a one technique, by creating a concrete components(struct, class, enum), instead of starting with a interface like protocol, we have the flexibility to change its behaviors and properties without breaking a contract introduced by a (too early) abstraction.
 
 ## Two kinds of dependencies
 
