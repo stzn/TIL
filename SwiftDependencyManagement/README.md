@@ -23,7 +23,7 @@
       - [Transient Lifestyle](#transient-lifestyle)
       - [Scoped Lifestyle](#scoped-lifestyle)
     - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
-    - [Do　 we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
+    - [Do we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
     - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
     - [Constructor injection](#constructor-injection)
     - [Method injection](#method-injection)
@@ -36,6 +36,7 @@
       - [Property injection](#property-injection)
     - [Global Mutable Shared State](#global-mutable-shared-state)
     - [Singleton(Global Mutable Shared State)'s (possible) problems](#singletonglobal-mutable-shared-states-possible-problems)
+    - [S(s)ingleton(Global Mutable Shared State) itself is not bad](#ssingletonglobal-mutable-shared-state-itself-is-not-bad)
     - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
     - [Avoid breaking modules](#avoid-breaking-modules)
       - [extension](#extension)
@@ -46,7 +47,10 @@
     - [Injection Constructor should be simple (don't add behavior)](#injection-constructor-should-be-simple-dont-add-behavior)
     - [Constructor Over-injection is code smell](#constructor-over-injection-is-code-smell)
     - [Create a good abstraction](#create-a-good-abstraction)
-    - [short code　≠ clean dependencies](#short-code-clean-dependencies)
+      - [Interface Segregation Principle](#interface-segregation-principle)
+      - [Interfaces have several roles](#interfaces-have-several-roles)
+      - [Interfaces should be single-purpose and small](#interfaces-should-be-single-purpose-and-small)
+      - [short code　≠ clean dependencies](#short-code-clean-dependencies)
     - [Restrict from creating and using dependencies in the same class](#restrict-from-creating-and-using-dependencies-in-the-same-class)
       - [Middle man anti-pattern](#middle-man-anti-pattern)
     - [Transition via delegate or closure](#transition-via-delegate-or-closure)
@@ -274,7 +278,7 @@ Like the above, we can create several components in the Composition Root. The Co
 
 In addition, we could define Factory to create a proper instance in each module. But be careful that we should use it only in the Composition Root.
 
-### Do　 we need to inject so much dependencies in Composition Root?
+### Do we need to inject so much dependencies in Composition Root?
 
 Apparently yes. But in facet, it's often said that we have many implicit dependencies. So, actual number of dependencies are not different. The Composition Root makes them explicit and we can get a clear dependency graph.
 
@@ -451,7 +455,7 @@ ServerAPIClient.shared = MockServerAPIClient()
 
 It looks singleton(and people call it singleton), but actually it's not singleton. Probably this is because when people see `shared` like name, they tend to think it's singleton pattern.
 
-It's not good since someone can change `shared` instance freely and it causes problems which hard to find the cause.
+It's not good since someone can change `shared` instance freely and it causes problems which hard to find the cause(as described in the next column). 
 
 So, back to property injection.
 
@@ -475,6 +479,12 @@ It's not said that we must not use Singleton(Global Mutable Shared State) at all
 - Testing becomes more difficult. As described the above, it's likely that we have to setup and clean up the mocks in every tests in the long run(It's easy to forget). Also, we can not predict what happens in parallel tests(flaky tests).
 - It's hard to decouple them. Clients probably need to import all dependencies which Singleton(Global Mutable Shared State) depends.
 - We have to setup them before they're used.
+- It could cause threading issues since it can be changed in multiple threads(= data races) if it's not thread-safe. It might cause unpredictable behavior, and in the worst case, it could cause data corruption, app crash, ...
+
+
+### S(s)ingleton(Global Mutable Shared State) itself is not bad
+
+S(s)ingleton(Global Mutable Shared State) makes sense if we need to enforce a single instance. However, the problem happens when we try to use it directly all over the place. As said the above, there could be many problems. If we want to use a single instance, the Composition Root should know if an instance is a singleton ot not then it should be injected into other components(modules).By this, we can facilitate threading, state management, and it also makes our code more testable.
 
 ### Depending on one shared concrete type tends to affect unrelated components
 
@@ -688,7 +698,37 @@ We need to think about:
 
 By hiding concrete implementations from an interface, it is open for extension and closed for modification (Open/Closed principle). If not, we might change it when applying other implementation.
 
-### short code　≠ clean dependencies
+#### Interface Segregation Principle
+
+Clients should not depend on methods they do not use. by this, we can keep clear interfaces, single responsibility, etc. If it's violated, there could be some problems:
+
+- have to recompile and redeploy modules, which will increase build and test times
+- break the foundation of independent development, meaning developers will have to add/fix code to components already conforming to the broken interface
+- then, internal merge and versioning conflicts become more likely
+- also, introducing potential bugs and regressions since unrelated codes could be changed at the same time
+
+The bigger out team becomes, the more this violation has effect on us.
+
+#### Interfaces have several roles
+
+Interfaces can be used in several situations:
+
+- As boundaries between business logics and infrastructure details(like HTTP, File system, etc). Protocol adapts the communication between them. It doesn't contain any core business logics. 
+- AS contracts between business logics(e.g. other feature modules, client and server).
+
+In Swift, many developers think that interface protocol, but we can use other things like closure, struct, etc... as interfaces.
+
+#### Interfaces should be single-purpose and small
+
+Following to Interface Segregation Principle, interfaces could become small since they should be single-purpose. If not, it could violate other SOLID principles like Single Responsibility Principle.
+
+Exposing too many operations are often not very good abstractions. They end up becoming bottlenecks and increasing the coupling in the system (we end up depending on modules which not needed)
+
+For example, assuming that there is a protocol to communicate with an interface to access web services via HTTP. If a client wants only get method, but another one wants get and post methods, they should be separate interfaces. If they share the same one and one client comes to need delete method, we need to change both clients.
+
+#### short code　≠ clean dependencies
+
+As said in the above, just being small does not make sense. The key is "single-purpose". For example, not every protocol necessarily has only one method.
 
 ### Restrict from creating and using dependencies in the same class
 
