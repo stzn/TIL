@@ -566,7 +566,7 @@ If we need to be more flexible without breaking the clients, we can invert depen
 
 To do so, we introduce protocol or closures ot any type of interface for the modules.
 
-<img src="./images/modular_inversion.png.png" alt= "modular inversion" width="100%">
+<img src="./images/modular_inversion.png" alt= "modular inversion" width="100%">
 
 For example, Login needs a function or a type that implements a function talking to an API.
 
