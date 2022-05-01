@@ -8,8 +8,7 @@
   - [Two kinds of dependencies](#two-kinds-of-dependencies)
     - [Stable dependencies](#stable-dependencies)
     - [Volatile dependencies](#volatile-dependencies)
-  - [DI patterns](#di-patterns)
-    - [Composition Root](#composition-root)
+  - [Composition Root](#composition-root)
     - [What are the merits of composition root?](#what-are-the-merits-of-composition-root)
       - [Make parallel development easier](#make-parallel-development-easier)
       - [Testability](#testability)
@@ -27,6 +26,8 @@
     - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
     - [Do we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
     - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
+    - [How to test the Composition Root?](#how-to-test-the-composition-root)
+  - [DI patterns](#di-patterns)
     - [Constructor injection](#constructor-injection)
     - [Method injection](#method-injection)
     - [Property injection(Setter injection)](#property-injectionsetter-injection)
@@ -156,11 +157,7 @@ Volatile Dependencies are dependencies that change frequently. It's advised to a
 - Aren’t installed on all machines in the development organization(= optional)
 - Contain nondeterministic behavior(e.g. `Date`)
 
-## DI patterns
-
-※ There is nothing wrong with them. It's just a level of abstraction. Each of them has pros/cons. It depends on what we want to achieve and it's important to think of our situations.
-
-### Composition Root
+## Composition Root
 
 > A Composition Root is a (preferably) unique location in an application where modules are composed together.  
 > [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
@@ -318,6 +315,15 @@ Apparently yes. But in facet, it's often said that we have many implicit depende
 
 Instantiating the concrete components does not mean that all dependencies are needed to load immediately. We can lazily load them if we need(e.g. using closures to provide dependencies's instances).
 
+### How to test the Composition Root?
+
+ the Composition Root is the root of the object graph. Thus, the Composition Root and its components shouldn’t be referenced by other modules. You want the inverse dependency: the Composition Root should depend on other modules (never the other way around).
+
+Making sure the Composition Root types are not public is a great way to enforce such rules, as the project wouldn’t even compile if another module references the Composition Root.
+
+## DI patterns
+
+
 ### Constructor injection
 
 It is the act of statically defining the list of required Dependencies by specifying them as parameters to the class’s constructor.
@@ -370,6 +376,8 @@ In most cases, default choice should be constructor injection, but there are sit
 [Injection Pattern](./images/injection_patterns.png)
 
 ## Some stages of DI
+
+※ There is nothing wrong with them. It's just a level of abstraction. Each of them has pros/cons. It depends on what we want to achieve and it's important to think of our situations.
 
 ### The Singleton pattern (from the Design Patterns book of GOF)
 
@@ -619,6 +627,7 @@ It doesn't need to know where it comes from. It doesn't care about anything else
 To be more modular, we can use Adapter pattern.
 
 Adapter pattern enables components with incompatible interfaces to work together seamlessly. The purpose is to convert the interface of a component into another interface a client expects. It enables us to decouple components from complex dependencies. It is often implemented as a class, nothing stops us from following its principles to implement adapter functions.
+
 
 <img src="./images/modular_adapter.png" alt= "modular adapter" width="100%">
 
