@@ -52,6 +52,8 @@
       - [Interface Segregation Principle](#interface-segregation-principle)
       - [Interfaces have several roles](#interfaces-have-several-roles)
       - [Interfaces should be single-purpose and small](#interfaces-should-be-single-purpose-and-small)
+      - [How can we collaborate these different interfaces in different module?](#how-can-we-collaborate-these-different-interfaces-in-different-module)
+      - [Similar is not same](#similar-is-not-same)
       - [short code　≠ clean dependencies](#short-code-clean-dependencies)
     - [Restrict from creating and using dependencies in the same class](#restrict-from-creating-and-using-dependencies-in-the-same-class)
       - [Middle man anti-pattern](#middle-man-anti-pattern)
@@ -94,12 +96,20 @@
 
 ## Modular design goal
 
+The goal is to achieve low coupling between modules, and high cohesion within each individual module.
+
+It makes our code:
+
 - Understandable
 - Reusable
 - Testable
 - Scalable
 - Easy to improve
 - Easy to refactor
+
+As a guideline, ask ourselves:
+
+"Can we refactor or add new features to this module without touching any files of the other module?"
 
 ## Decoupling business logics(rules) from any framework implementations
 
@@ -746,6 +756,21 @@ Following to Interface Segregation Principle, interfaces could become small sinc
 Exposing too many operations are often not very good abstractions. They end up becoming bottlenecks and increasing the coupling in the system (we end up depending on modules which not needed)
 
 For example, assuming that there is a protocol to communicate with an interface to access web services via HTTP. If a client wants only get method, but another one wants get and post methods, they should be separate interfaces. If they share the same one and one client comes to need delete method, we need to change both clients.
+
+#### How can we collaborate these different interfaces in different module?
+
+TO decouple a module from other one, such a adapting thing should be done in the Composition Root. If a behavior needs some more business logic after that, we might delegate it to another feature. If we don't need any other business logic, we just call the infrastructure implementations. For example, we want to delete cache when the specific time is passed by. The judgement if it's over or not is business logic, then deleting the actual cache from the system is the infrastructure implementation. 
+
+#### Similar is not same
+
+When we find the similar methods(e.g. get, delete, etc) in two interfaces, we are tempered to create one shared interface. But, sometimes it's not right since the usage of them are different by their clients, and the shared interface could not represent what each client needs. 
+
+In addition, it gets harder in case of multiple modular design. If we create "Shared" module and put the shared interfaces in it, other features which need the interfaces always have to import the shared module into their modules. And this will increase maintenance cost (e.g., every time the shared module changes, we need to recompile and redeploy all other modules). 
+
+Each feature should define its own protocols in its own module. Then, the modules can become simpler to maintain since the features are fully decoupled, and the code is simpler since the protocols define the precise methods they need.
+
+※ It won't say that we must have separate concrete implementations for each interface. We can use the same implementations across several interfaces(e.g. store data in CoreData, accessing a server, etc)
+
 
 #### short code　≠ clean dependencies
 
