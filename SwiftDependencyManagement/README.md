@@ -44,7 +44,7 @@
     - [Avoid breaking modules](#avoid-breaking-modules)
       - [extension](#extension)
       - [Dependency Inversion](#dependency-inversion-1)
-    - [Adapter Pattern](#adapter-pattern)
+    - [Component Adapter Pattern](#component-adapter-pattern)
   - [Don't skip stages](#dont-skip-stages)
   - [More consideration about DI](#more-consideration-about-di)
     - [Injection Constructor should be simple (don't add behavior)](#injection-constructor-should-be-simple-dont-add-behavior)
@@ -238,12 +238,12 @@ Making sure the Composition Root types are not public is a great way to enforce 
 
 ### Composer
 
-Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called Composer. It’s an important part of the Composition Root.
+Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called **Composer**. It’s an important part of the Composition Root.
 
 Composer could be a DI Container, but it can also be any method that constructs object graphs manually. 
 ※ In Swift world, I think we would use manual dependency management in many cases.
 
-For example, we can define composers for each our module..
+For example, we can define composers for each our module.
 
 <img src="./images/composition_root1.png" alt= "composition_root 1" width="100%">
 
@@ -317,9 +317,19 @@ Instantiating the concrete components does not mean that all dependencies are ne
 
 ### How to test the Composition Root?
 
- the Composition Root is the root of the object graph. Thus, the Composition Root and its components shouldn’t be referenced by other modules. You want the inverse dependency: the Composition Root should depend on other modules (never the other way around).
+They need to test in the Integration Test. For example, we can test it by simulating app Launch, state transitions.
 
-Making sure the Composition Root types are not public is a great way to enforce such rules, as the project wouldn’t even compile if another module references the Composition Root.
+When testing our app with Integration Tests, simulating the app launch and state transitions (e.g., background/foreground) is just a matter of invoking a method.
+
+But, we could meet the difficulties. We can not invoke `SceneDelegate` method. For example, to invoke the `UISceneDelegate.willConnectToSession` method, we need to pass an instance of the `UIScene.ConnectionOptions` class. However, this class doesn’t have a public initializer.
+
+So, we need to move the logic within the method we cannot invoke into a method we can invoke
+
+One way is to use convenience initializers of `SceneDelegate`.
+This allows us to pass stubbed infrastructure implementations during tests instead of making real calls to the network and database.
+
+Plus, we can use `lazy` properties whose initial value is not calculated until the first time they are used. So, if we provides their initial values via the convenience initializer, the system use them. If not, the system uses the default ones.
+
 
 ## DI patterns
 
@@ -621,16 +631,6 @@ For example, Login needs a function or a type that implements a function talking
 
 It doesn't need to know where it comes from. It doesn't care about anything else.
 
-
-### Adapter Pattern
-
-To be more modular, we can use Adapter pattern.
-
-Adapter pattern enables components with incompatible interfaces to work together seamlessly. The purpose is to convert the interface of a component into another interface a client expects. It enables us to decouple components from complex dependencies. It is often implemented as a class, nothing stops us from following its principles to implement adapter functions.
-
-
-<img src="./images/modular_adapter.png" alt= "modular adapter" width="100%">
-
 We have generic `ServerAPIClient` in the center, we have modules with only what they need and we implement the adapters.
 
 It's completely modular since we can use this `ServerAPIClient` in other applications, we can use `Login` in other applications in other contexts, and os on.
@@ -694,9 +694,20 @@ let viewModel = LoginViewModel(loginAPI: MockServerAPIClient().login)
 
 ※ We use `ServerAPIClient` extensions as adapters since it's very simple. And this time we use closures for abstraction since they are the only one method in each module.
 
-Adapter can live in Composition Root(described later). It would implement the protocol.
 
-⚠️ Adapters work but can complicate the design. So avoid them when possible. Keep it simple puts before it.
+### Component Adapter Pattern
+
+To be more modular, we can use Adapter pattern.
+
+Adapter pattern enables components with incompatible interfaces to work together seamlessly. The purpose is to convert the interface of a component into another interface a client expects. It enables us to decouple components from complex dependencies. It is often implemented as a class, nothing stops us from following its principles to implement adapter functions.
+
+<img src="./images/modular_adapter.png" alt= "modular adapter" width="100%">
+
+
+Adapter can live in Composition Root. That's why each components doesn't need to know each other.
+
+
+⚠️ Adapter pattern can complicate the design. So avoid them if not necessary. Keep it simple puts before it.
 
 ## Don't skip stages
 
