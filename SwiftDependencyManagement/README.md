@@ -3,7 +3,11 @@
 - [How can we manage dependencies?](#how-can-we-manage-dependencies)
   - [Some aspects of good architecture](#some-aspects-of-good-architecture)
   - [Modular design goal](#modular-design-goal)
-  - [Decoupling business logics(rules) from any framework implementations](#decoupling-business-logicsrules-from-any-framework-implementations)
+  - [Decoupling business logics(rules) from any framework(infrastructure) logics](#decoupling-business-logicsrules-from-any-frameworkinfrastructure-logics)
+    - [Two types of business logic](#two-types-of-business-logic)
+      - [Application-specific business logic](#application-specific-business-logic)
+      - [Application-agnostic business logic](#application-agnostic-business-logic)
+    - [Framework (Infrastructure) logic](#framework-infrastructure-logic)
     - [Dependency Inversion](#dependency-inversion)
   - [Two kinds of dependencies](#two-kinds-of-dependencies)
     - [Stable dependencies](#stable-dependencies)
@@ -112,10 +116,10 @@ As a guideline, ask ourselves:
 
 "Can we refactor or add new features to this module without touching any files of the other module?"
 
-## Decoupling business logics(rules) from any framework implementations
+## Decoupling business logics(rules) from any framework(infrastructure) logics 
 
 - Business logics(rules): **what** the system do
-- Framework implementations: **how** to do
+- Framework(Infrastructure) logics: **how** to do
 
 The dependency should be from the framework to the business logic since the "how to do" needs to conform to the "what to do" and "what" is agnostic of "how".
 
@@ -125,9 +129,38 @@ This difference is very important to achieve the modular design goal
 - It makes changes in the codebase easier and cheaper, enabling the team to welcome new requirements
 - It makes the codebase more resilient as it decreases the number of places that can break when a code change is required(avoiding component, modular and even systemic level break)
 
+### Two types of business logic
+
+There are two common types of business logic. If we don’t distinguish between them when discussing with other developers, the lack of context can lead to miscommunication.
+
+#### Application-specific business logic
+
+Use Cases describe application-specific business logic and is often implemented by a Controller (there are many alternative names like Interactor, Service, etc) type collaborating with other components (coordinating domain models and application infrastructure abstractions). Controllers deal with application interactions (e.g., coordinating asynchronous operations from collaborators) with strict boundaries (protocol/closure) to protect the application from depending on low-level details (e.g. 3rd-party frameworks). 
+
+It should not depend on concrete (specific) framework details.
+
+#### Application-agnostic business logic
+
+Domain Models describe application-agnostic business logic. This kind of logic is independent of application, also known as core business logic. 
+
+Core business logic is often reused across Use Cases within the same application and even across other applications. 
+
+It should not depend on any application or framework details. 
+
+Domain Models are usually tiny little objects when compared with the size of the system. But its importance is much greater than its size. Domain Models implement the essential business logic (the code that really matters to the business), so we don’t lose sight of the domain within the technical and infrastructure complexities. Notice how, for example, we strive to keep our models simple, with no asynchronous or impure behavior (application detail) leaking into the domain models.
+
+### Framework (Infrastructure) logic
+
+Framework (Infrastructure) logic should not implement any business rules. Mixing business logic with infrastructure details is one of the most common (and one of the biggest mistakes) we find in codebases (e.g. Database and Network clients implementing validation or business rules operations or Domain Models inheriting from framework types, CoreData’s `NSManagedObject`). Doing so will scatter business logic across your code with no central source of truth. Tangled business rules and infrastructure code is harder to use, reuse, maintain, and test.
+
+For example, assuming that changing our local database from CoreData to Realm forced to change(more to say rewrite) our business logics, it's not good.
+
+The more we separate code (the less a piece of code knows/does), the easier it is to develop, use, reuse, maintain, and test (because it will naturally depend on less context). Infrastructure interface implementations should be as simple as possible. It should only fulfill infrastructure commands sent by the Controller types through the abstract interface (protocol/closure) like fetch something from the cache, store cache, download an image from a remote URL, etc.
+
+
 ### Dependency Inversion
 
-To achieve it, Dependency Inversion is essential. It means that instead of depending on framework requirements, we make the framework depend on our needs.
+To achieve the separation between business and framework logics, Dependency Inversion is essential. It means that instead of depending on framework requirements, we make the framework depend on our needs.
 
 As a one technique, by creating a concrete components(struct, class, enum), instead of starting with a interface like protocol, we have the flexibility to change its behaviors and properties without breaking a contract introduced by a (too early) abstraction.
 
