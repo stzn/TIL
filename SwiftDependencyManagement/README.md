@@ -79,8 +79,14 @@
       - [The Decorator pattern and code duplication(DRY violation)](#the-decorator-pattern-and-code-duplicationdry-violation)
       - [Event driven design](#event-driven-design)
       - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
-    - [Functional core, Imperative share (Dependency Inversion)](#functional-core-imperative-share-dependency-inversion)
-    - [One common model vs Segregated models](#one-common-model-vs-segregated-models)
+      - [Side-effect free core business rules](#side-effect-free-core-business-rules)
+      - [Functional core, Imperative share](#functional-core-imperative-share)
+    - [Unified vs Segregated models](#unified-vs-segregated-models)
+      - [The problem of a unified model](#the-problem-of-a-unified-model)
+      - [Creating Segregated models](#creating-segregated-models)
+      - [Be careful not to cross boundaries when they are in the same project](#be-careful-not-to-cross-boundaries-when-they-are-in-the-same-project)
+      - [Be careful not to diverge related concepts too much at the same time](#be-careful-not-to-diverge-related-concepts-too-much-at-the-same-time)
+      - [Using a unified model controlled by an external team](#using-a-unified-model-controlled-by-an-external-team)
     - [Domain model and DI](#domain-model-and-di)
   - [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
   - [Separation pros/cons](#separation-proscons)
@@ -1103,24 +1109,54 @@ We can compose subscriptions in the Composition Root. It's important since it be
 The primary aim of AOP is to keep our cross-cutting concerns DRY(Don't repeat yourself). There’s a strong relationship between the OCP(the Open/Closed Principle) and the DRY principle. They both strive for the same objective, which is to reduce repetition and prevent sweeping changes.
 
 
-### Functional core, Imperative share (Dependency Inversion)
+#### Side-effect free core business rules
 
-Side-effects (e.g., I/O, database writes, UI updates…) do need to happen, but not at the core of the application. The side-effects can happen at the boundary of the system, in the Infrastructure implementations.
+Keeping our core domain free from side-effects makes it extremely easy to build, maintain and test.
+
+Side-effects (e.g. I/O, database writes, UI updates, etc) do need to happen, but not at the core of the application. The side-effects can happen at the boundary of the system, in the Infrastructure implementations.
+
+#### Functional core, Imperative share
+
+This separation is called Functional Core, Imperative Shell.
 
 <img src="./images/functional_core.png" alt= "functional core" width="100%">
 
-### One common model vs Segregated models
+Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input).
 
-All dependencies on one model leads to tremendous change all over the place. It disturbs parallel development(many conflicts).
+### Unified vs Segregated models
 
-The system's boundaries, based on their specifications, may require multiple model representations. Opting to use a single model across modules may lead to complex, costly-to-maintain, and hard-to-use code. “Trying to solve everyone’s problems at once will solve no one’s.
+#### The problem of a unified model
 
-Thus, instead of always passing models across boundaries, consider using a data transfer representation (also known as data transfer objects or DTO).
+A model should be a simple and consistent representation of a domain concept. When we share models across boundaries, it gets easy to start adding methods and properties that one of the modules need, but the others don't. When this happens, our models grow in size and start to lose consistency. For example, in a module, we need some special properties for API, but not for UI, Cache etc. In multiple modules environment, all dependencies on one model leads to tremendous change all over the place. It disturbs parallel development(many conflicts).
 
-Creating separate model representations helps us keep the code concise and easy to develop, use and maintain. At first, the separate representations may look similar, but over time they often change at a distinct pace and for different reasons.
+The system's boundaries, based on their specifications, may require multiple model representations. Opting to use a single model across modules may lead to complex, costly-to-maintain, and hard-to-use code. Trying to solve everyone’s problems at once will solve no one’s.
 
-When we keep them within the same module, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick conveniences (but costly and debt in the end). 
-If we want to prevent such unwanted dependency accidents, separate modules. Also, if modules reused in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but don’t be discouraged from doing so. When done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
+As developers, we often strive to find perfect abstractions, so multiple representations of a data model seem inelegant. For this reason, it’s common to see code bases where a desire to fully unify the domain model leads to inconsistent and hard to reason/maintain design. A unified model can be a good starting solution, but it is often not scalable or cost-effective.
+
+※ Of course, a unified model is not always bad. For example, using a unified model controlled by an external team (e.g. server API/Firebase model, etc) throughout the application is often called a "conformist approach." There’s merit to such an approach, as it can speed up development at early stages of simple API-consumer app projects. If the app you’re building does nothing more than consuming and displaying data from some external APIs, such an approach might pay off while its requirements don’t change.
+
+#### Creating Segregated models
+
+Thus, instead of always passing models across boundaries, consider using a data transfer representation (also known as data transfer objects or DTO). Creating separate model representations helps us keep the code concise and easy to develop, use and maintain. At first, the separate representations may look similar, but over time they often change at a distinct pace and for different reasons. 
+
+When the models start becoming different, it's important to be ready to separate the concepts in a way which will prevent the system from being in inconsistent states. In addition, team members should have a common/shared view of the context for each model, and work towards maintaining its consistency. The context breakdown will vary from project to project, depending on the domain and subdomain models, frameworks in use, parts of the application that requires separation, and even cross-team structure.
+
+#### Be careful not to cross boundaries when they are in the same project
+
+When we keep them within the same module, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick conveniences (but costly and debt in the end). To prevent such unwanted dependency accidents, separate modules. Also, if modules reused in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but when done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
+
+#### Be careful not to diverge related concepts too much at the same time
+
+However, we must also be careful with the other extreme: a design that diverges related concepts too much. Otherwise, the system grows in complexity, the cost of integration increases, communication between teams becomes harder, and we won’t be able to clearly see the correlations within the boundaries. 
+
+We prevent harmful model diversion by keeping the translation layer (the mapping to and from data representations) very close to the model representations (within the same project at this stage) and having a continuous integration process in place. By keeping modules within the same project, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick (but costly) conveniences (debt). If we want to prevent such unwanted dependency accidents, separate modules in different projects. Also, if module reuse in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but don’t be discouraged from doing so. When done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
+
+We don't always need one DTO per module. It's a choice. If we believe both modules should always change together, we don't need a separate DTO. And if they change together, we should probably combine them into a single module.
+
+
+#### Using a unified model controlled by an external team
+
+
 
 ### Domain model and DI
 
