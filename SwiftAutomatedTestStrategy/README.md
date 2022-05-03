@@ -300,6 +300,12 @@ For example:
 
  When logging events to a server, there is no way for the mobile API to ask for the events we sent.
 
+## Triangulating a specific data point to decide which values to test
+
+Triangulating specific data points helps us de-risk and increase the test coverage of the system. For example, assuming that we need to delete local data in 3 days as a business rule. We need to check 3 days, less then 3 days, and more than 3 days at least.
+
+We can improve our process of testing “hidden” behaviors simply by triangulating examples around a specific data point.
+
 ## Test tips
 
 When testing UIViewController, we sometimes meet difficulties because of UIKIt internal(hidden) behaviors.
@@ -405,3 +411,32 @@ final class OverrideViewController: UIViewController {
 ```
 
 [Subclass and Override: A Legacy Code Technique](https://medium.com/pragmatic-programmers/subclass-and-override-a-legacy-co-de-technique-44dbc6ac1a74)
+
+ ## The Transformation Priority Premise
+
+It’s tempting to just fix the code at once, but it will increase the risk of mistakes. Moving forward in small steps reduces the risk of mistakes.
+
+When you edit code, you transform it from one working state to another. The point is to keep the time when the code is invalid as short as possible. There is a prioritized list of code transformations. We can use it as a guideline.
+
+```
+({}→nil) no code at all → code that employs nil
+(nil→constant)
+(constant→constant+) a simple constant to a more complex constant
+(constant→scalar) replacing a constant with a variable or an argument
+(statement→statements) adding more unconditional statements
+(unconditional→if) splitting the execution path
+(scalar→array)
+(array→container)
+(statement→recursion)
+(if→while)
+(expression→function) replacing an expression with a function or algorithm
+(variable→assignment) replacing the value of a variable
+```
+
+The list is ordered roughly so that the simpler transformations are at the top, and the more complex changes are at the bottom.
+
+The point is to move in small increments.
+
+[](https://blog.cleancoder.com/uncle-bob/2013/05/27/TheTransformationPriorityPremise.html)
+
+## TDD Test-driven development
