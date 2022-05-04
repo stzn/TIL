@@ -168,7 +168,21 @@ The more we separate code (the less a piece of code knows/does), the easier it i
 
 To achieve the separation between business and framework logics, Dependency Inversion is essential. It means that instead of depending on framework requirements, we make the framework depend on our needs.
 
-As a one technique, by creating a concrete components(struct, class, enum), instead of starting with a interface like protocol, we have the flexibility to change its behaviors and properties without breaking a contract introduced by a (too early) abstraction.
+Dependency inversion between business and framework logics is the basis for designing modular systems. 
+
+Three roles take part in the dependency inversion
+
+1. A high-level component, such as business rules has no references to low-level implementation details, such as the delivery mechanism (e.g. UI, hardware, databases, network, etc).
+2. A low-level component that is aware of the delivery mechanism (e.g., UI, hardware, databases, network, etc).
+3. A boundary component, such as a protocol or closure, acting as an abstraction to guarantee the high-level component doesn’t depend on low-level details.
+
+<img src="./images/functional_core.png" alt= "functional core" width="100%">
+
+When the high-level component needs to communicate with low-level implementation details, it does so through the boundary abstraction. The low-level component implements the boundary abstraction and performs actions based on the high-level component’s commands.
+
+The boundary provides the flexibility for making the other two participants (high and low level components) free from ever knowing about each other’s existence.
+
+<img src="./images/dependency_inversion.png" alt= "functional core" width="100%">
 
 ## Two kinds of dependencies
 
