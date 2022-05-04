@@ -83,7 +83,7 @@
       - [Functional core, Imperative share](#functional-core-imperative-share)
     - [Unified vs Segregated models](#unified-vs-segregated-models)
       - [The problem of a unified model](#the-problem-of-a-unified-model)
-      - [Creating Segregated models](#creating-segregated-models)
+      - [Creating Segregated models (DTO)](#creating-segregated-models-dto)
       - [Be careful not to cross boundaries when they are in the same project](#be-careful-not-to-cross-boundaries-when-they-are-in-the-same-project)
       - [Be careful not to diverge related concepts too much at the same time](#be-careful-not-to-diverge-related-concepts-too-much-at-the-same-time)
       - [Using a unified model controlled by an external team](#using-a-unified-model-controlled-by-an-external-team)
@@ -1133,9 +1133,9 @@ The system's boundaries, based on their specifications, may require multiple mod
 
 As developers, we often strive to find perfect abstractions, so multiple representations of a data model seem inelegant. For this reason, it’s common to see code bases where a desire to fully unify the domain model leads to inconsistent and hard to reason/maintain design. A unified model can be a good starting solution, but it is often not scalable or cost-effective.
 
-※ Of course, a unified model is not always bad. For example, using a unified model controlled by an external team (e.g. server API/Firebase model, etc) throughout the application is often called a "conformist approach." There’s merit to such an approach, as it can speed up development at early stages of simple API-consumer app projects. If the app you’re building does nothing more than consuming and displaying data from some external APIs, such an approach might pay off while its requirements don’t change.
+※ Of course, a unified model is not always bad. For example, we believe  model won't change or the domain model and all seg always change together.
 
-#### Creating Segregated models
+#### Creating Segregated models (DTO)
 
 Thus, instead of always passing models across boundaries, consider using a data transfer representation (also known as data transfer objects or DTO). Creating separate model representations helps us keep the code concise and easy to develop, use and maintain. At first, the separate representations may look similar, but over time they often change at a distinct pace and for different reasons. 
 
@@ -1149,14 +1149,22 @@ When we keep them within the same module, we must be disciplined with our action
 
 However, we must also be careful with the other extreme: a design that diverges related concepts too much. Otherwise, the system grows in complexity, the cost of integration increases, communication between teams becomes harder, and we won’t be able to clearly see the correlations within the boundaries. 
 
-We prevent harmful model diversion by keeping the translation layer (the mapping to and from data representations) very close to the model representations (within the same project at this stage) and having a continuous integration process in place. By keeping modules within the same project, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick (but costly) conveniences (debt). If we want to prevent such unwanted dependency accidents, separate modules in different projects. Also, if module reuse in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but don’t be discouraged from doing so. When done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
+We prevent harmful model diversion by keeping the translation layer (the mapping to and from data representations) very close to the model representations (within the same project) and having a continuous integration process in place.
+- When we separate related classes into many separate modules. And every time we need to use one of those classes, we could need to import all those modules together in the long run since they are related and there is high possibility to use them together.
 
-We don't always need one DTO per module. It's a choice. If we believe both modules should always change together, we don't need a separate DTO. And if they change together, we should probably combine them into a single module.
+- When we always need to import separate modules to use a specific model or class, that's a sign that those concepts should be bundled together in the same module. Separating them will increase the cost of change and maintenance with no big benefits (which can be harmful to the team productivity).
 
+- If changing one module always requires changes in another module, that's a sign of high-coupling
+
+- We could duplicate the exact same model logic in multiple modules. And when there's a change in the logic, we need to change it in multiple places to keep the system consistent.
+
+On the other hand, by keeping modules within the same project, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick (but costly) conveniences (debt). If we want to prevent such unwanted dependency accidents, separate modules in different projects. Also, if module reuse in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but don’t be discouraged from doing so. When done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
+
+※ We don't always need one DTO per module. It's a choice. If we believe both modules should always change together, we don't need a separate DTO. And if they change together, we should probably combine them into a single module. Also, if the model is just a data(no logic), we could not need its DTO.
 
 #### Using a unified model controlled by an external team
 
-
+This approach (e.g. using backend API models directly) throughout the application has merits as it can speed up development at early stages of simple API-consumer app projects. If the app we’re building does nothing more than consuming and displaying data from some external APIs, such an approach might pay off while its requirements don’t change. If there is possibility to change it, it's better to have more options to be able to identify when to switch strategies and refactor the design towards independence/freedom from external actors.
 
 ### Domain model and DI
 
