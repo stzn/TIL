@@ -13,10 +13,10 @@
       - [Application-agnostic business logic](#application-agnostic-business-logic)
     - [Framework (Infrastructure) logic](#framework-infrastructure-logic)
     - [Dependency Inversion](#dependency-inversion)
-- [Creating good abstractions(interfaces) is a key point](#creating-good-abstractionsinterfaces-is-a-key-point)
+- [Creating good abstractions is a key point](#creating-good-abstractions-is-a-key-point)
   - [Interfaces should be single-purpose and small](#interfaces-should-be-single-purpose-and-small)
-  - [Interfaces have different roles](#interfaces-have-different-roles)
     - [Notice: single-purpose doesn't mean a single method](#notice-single-purpose-doesnt-mean-a-single-method)
+  - [Interfaces have different roles](#interfaces-have-different-roles)
   - [Good abstraction & SOLID principles](#good-abstraction--solid-principles)
   - [Good abstraction & Design patterns](#good-abstraction--design-patterns)
   - [Good abstraction & Universal abstraction](#good-abstraction--universal-abstraction)
@@ -217,19 +217,36 @@ The boundary provides the flexibility for making the other two participants (hig
 
 <img src="./images/dependency_inversion.png" alt= "functional core" width="100%">
 
-# Creating good abstractions(interfaces) is a key point
+# Creating good abstractions is a key point
 
-By interfaces hiding concrete implementations, it is open for extension and closed for modification (Open/Closed principle). If not, we might change it when applying other implementation.
+Interfaces can hide concrete implementations.
 
-There are some points to consider good interfaces.
+There are some points to create good interfaces.
 
 ## Interfaces should be single-purpose and small
 
-Following to ISP, interfaces could become small since they should be single-purpose. If not, it could violate other SOLID principles like SRP.
+To achieve good abstractions, we should avoid packing all method declarations into a single interface. So, we should separate the interface's methods into as many interfaces as needed by their clients.
 
-Exposing too many operations are often not very good abstractions. They end up becoming bottlenecks and increasing the coupling in the system (we end up depending on modules which not needed)
+We need to be careful to the below things:
+
+1. Avoid concrete implementations having to implement any unnecessary methods
+2. Decoupling clients from methods they do not need
+
+1 is called the Liskov Substitution Principle(LSP) and 2 is called the Interface-Segregation Principle (ISP).
+
+The Interface Segregation Principle (ISP): No client should be forced to depend on methods it does not use.
+
+The Liskov Substitution Principle (LSP): Objects in a program should be replaceable with instances of their subtypes without altering the correctness of the program.
+
+**Before declaring a interface with more than one method, take some time to think if all implementations of the interface should implement all of its methods.** If not, then you should consider a way for segmenting the methods into more than one interface, respecting the ISP and LSP.
 
 For example, assuming that there is a protocol to communicate with an interface to access web services via HTTP. If a client wants only get method, but another one wants get and post methods, they should be separate interfaces. If they share the same one and one client comes to need delete method, we need to change both clients.
+
+### Notice: single-purpose doesn't mean a single method
+
+Common misunderstanding is that interfaces must have only one method. Ideally, it could be one since it's much easier to deal with dependencies that do only one thing. Also, we don't need to care about the order of method invocations. However, it's sometimes not true. If they are related and always change together, are used together, they should be in the same interface. If not, we will always have to import and couple with different module.
+
+The thing is whether **all methods are related and responsible for one thing or not**.
 
 ## Interfaces have different roles
 
@@ -240,16 +257,10 @@ Interfaces can be used in several situations:
 
 ※ In Swift, many developers think that interface is protocol, but we can also use other components like closure, struct, etc....
 
-### Notice: single-purpose doesn't mean a single method
-
-Common misunderstanding is that interfaces must have only one method. Ideally, it could be ine since it's much easier to deal with dependencies that do only one thing. Also, we don:t need to care about the order of method invocations. However, it's sometimes not true. If they are related and always change together, are used together, they should be in the same interface. If not, we could have to import and couple with different module.
-
-The thing is if it's SRP violation or not, **Are all methods related and responsible for one and only one responsibility?**
-
 ## Good abstraction & SOLID principles
 
 Good abstractions are highly connected with SOLID principles. They help us quickly develop and test parts of the application in isolation by: 
-- representing a single purpose abstraction(Interface Segregation Principle), 
+- representing a single purpose abstraction(the Interface Segregation Principle), 
 - being responsible for a specific functionality(the Single Responsibility Principle) 
   hiding low-level implementation details(the Dependency Inversion Principles)
 - allowing us to compose, replace, and inject different implementation via an interface(the Liskov Substitution Principle)
@@ -284,6 +295,11 @@ The objects of category theory are universal abstractions(It's different from ob
 [From design patterns to category theory](https://blog.ploeh.dk/2017/10/04/from-design-patterns-to-category-theory/)
 
 The Combine framework by Apple provides us building blocks based on those universal abstractions.  This means that, with SOLID abstractions, you can seamlessly replace some existing design pattern implementations with built-in Combine operators.
+
+Examples are shown in the following:
+- [From the Decorator pattern to handleEvents](#from-the-decorator-pattern-to-handleevents)
+- [From the Composition pattern to catch](#from-the-composition-pattern-to-catch)
+
 
 # Domain models
 
@@ -554,11 +570,11 @@ LocalItemLoader(store: inMemoryStore)).loadPublisher(from: url)
 
 When developing for multithreaded platforms such as iOS and macOS, we need to consider and evaluate how thread dispatching affects the composition, correctness, and ease of use of the system.
 
-As a rule of thumb, we prefer to let the clients of our APIs decide to dispatch to appropriate threads if needed. We do so since we can’t predict the client’s needs. Some clients may want to update the UI (thus, dispatch to the main thread), while others may have to carry on mapping and to combine the data with other operations (thus, benefitting from background threads).
+As a rule of thumb, we prefer to let the clients of our APIs decide to dispatch to appropriate threads if needed since we can’t predict the client’s needs. Some clients may want to update the UI (need to dispatch to the main thread), while others may have to carry on mapping and to combine the data with other operations (maybe need to dispatch background threads).
 
 Another possible solution is to allow the clients to provide the desired dispatch queue for the completion callbacks (via dependency injection, for example).
 
-Regardless of the technique we choose, it’s always a good idea to provide documentation to the clients of our APIs to help them use the APIs correctly (as we intended them to).
+In any solution, it’s always a good idea to provide documentation to the clients of our APIs to help them use the APIs correctly (as we intended them to).
 
 # Do we want the operation to proceed regardless of whether `self` still exists when the closure is called?
 
