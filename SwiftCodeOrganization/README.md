@@ -31,6 +31,8 @@
 - [From the Decorator pattern to handleEvents](#from-the-decorator-pattern-to-handleevents)
 - [The Composition pattern](#the-composition-pattern)
 - [From the Composition pattern to catch](#from-the-composition-pattern-to-catch)
+- [Who should control threads?](#who-should-control-threads)
+- [Do we want the operation to proceed regardless of whether `self` still exists when the closure is called?](#do-we-want-the-operation-to-proceed-regardless-of-whether-self-still-exists-when-the-closure-is-called)
 - [Code Organization Pattern](#code-organization-pattern)
   - [Monolith](#monolith)
   - [Feature vertical slicing](#feature-vertical-slicing)
@@ -546,6 +548,66 @@ LocalItemLoader(store: inMemoryStore)).loadPublisher(from: url)
     .handleEvents(receiveOutput: { print("We can add logs freely") })
     .sink { /*  */ }
     .store(&cancellables)
+```
+
+# Who should control threads?
+
+When developing for multithreaded platforms such as iOS and macOS, we need to consider and evaluate how thread dispatching affects the composition, correctness, and ease of use of the system.
+
+As a rule of thumb, we prefer to let the clients of our APIs decide to dispatch to appropriate threads if needed. We do so since we can’t predict the client’s needs. Some clients may want to update the UI (thus, dispatch to the main thread), while others may have to carry on mapping and to combine the data with other operations (thus, benefitting from background threads).
+
+Another possible solution is to allow the clients to provide the desired dispatch queue for the completion callbacks (via dependency injection, for example).
+
+Regardless of the technique we choose, it’s always a good idea to provide documentation to the clients of our APIs to help them use the APIs correctly (as we intended them to).
+
+# Do we want the operation to proceed regardless of whether `self` still exists when the closure is called?
+
+When handling a escaping closure, we need to think about `self` capture.
+
+For example, when we don't want to proceed the operation after `self` was deallocated, we need to check if `self` still exists or not.
+
+```swift
+class SomeClass {
+    let fixedNumber = 1
+    func run() {
+        DispatchQueue.global().async { [weak self] in
+            guard let self = self else { return }
+            print(self.fixedNumber)
+        }
+    }
+}
+```
+
+On the other hand, when we want, we don't check it.
+
+```swift
+class SomeClass {
+    func run() {
+        let fixedNumber = self.fixedNumber
+        DispatchQueue.global().async {
+            print(fixedNumber)
+        }
+        /* OR just capture fixedNumber
+        DispatchQueue.global().async { [fixedNumber] in
+            print(fixedNumber)
+        }
+        */
+    }
+}
+```
+
+It depends on what we're trying to achieve. `self` check is not fit for all cases.
+
+※ Notice: if we use `self` directly in the closure, it holds `self` instance strongly and outlives it by the time the closure has finished.
+
+```swift
+class SomeClass {
+    func run() {
+        DispatchQueue.global().async {
+            print(self.fixedNumber) // ⚠️
+        }
+    }
+}
 ```
 
 # Code Organization Pattern
