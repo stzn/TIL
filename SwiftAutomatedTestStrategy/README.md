@@ -1,12 +1,55 @@
-# Swift Automated Test Strategy
+- [Words](#words)
+- [Why we need to run automated test?](#why-we-need-to-run-automated-test)
+- [Programmer Test Principles](#programmer-test-principles)
+- [The Test Pyramid](#the-test-pyramid)
+  - [1. Unit/Isolated tests](#1-unitisolated-tests)
+  - [2. Integration/System tests](#2-integrationsystem-tests)
+  - [3. UI tests](#3-ui-tests)
+  - [Argument against Unit/Isolated tests](#argument-against-unitisolated-tests)
+- [Some types of UI tests in iOS](#some-types-of-ui-tests-in-ios)
+  - [XCUITest](#xcuitest)
+  - [Acceptance Testing](#acceptance-testing)
+  - [Snapshot Testing](#snapshot-testing)
+- [Refactoring and test](#refactoring-and-test)
+- [We should strive to test behaviors instead of implementations.](#we-should-strive-to-test-behaviors-instead-of-implementations)
+- [We should strive to test through the public interfaces](#we-should-strive-to-test-through-the-public-interfaces)
+- [Dependencies which make unit tests difficult (FIRE rules)](#dependencies-which-make-unit-tests-difficult-fire-rules)
+  - [(F)ast](#fast)
+  - [(I)solated](#isolated)
+    - [Global variables](#global-variables)
+    - [Persistent storage.](#persistent-storage)
+  - [(R)epeatable](#repeatable)
+  - [(E)xaminable:](#examinable)
+  - [Making dependencies explicit](#making-dependencies-explicit)
+- [(TBD)Make tests descriptive](#tbdmake-tests-descriptive)
+- [Triangulating a specific data point to decide which values to test](#triangulating-a-specific-data-point-to-decide-which-values-to-test)
+- [Test tips](#test-tips)
+  - [UI layout changes not applied immediately](#ui-layout-changes-not-applied-immediately)
+  - [RunLoop tricks](#runloop-tricks)
+  - [Simulate user drags scroll](#simulate-user-drags-scroll)
+  - [Avoid singletons by Subclass and Override Method.](#avoid-singletons-by-subclass-and-override-method)
+- [The Transformation Priority Premise](#the-transformation-priority-premise)
+- [Code Analysis](#code-analysis)
+  - [Overall test lines of code per production lines of code](#overall-test-lines-of-code-per-production-lines-of-code)
+  - [Test lines of code per production lines of code over time](#test-lines-of-code-per-production-lines-of-code-over-time)
+  - [Conditional statements per test file](#conditional-statements-per-test-file)
+  - [Comments per test file](#comments-per-test-file)
+  - [Setup lines of code per test file](#setup-lines-of-code-per-test-file)
+  - [Lines of code per test method](#lines-of-code-per-test-method)
+  - [Code Coverage](#code-coverage)
+  - [Test time per commit](#test-time-per-commit)
 
-## Why we need to run automated test?
+# Words
+
+component: functions, modules, classes, protocols, interfaces, data structures, dependencies and any language/platform or component-like types in the codebase
+
+# Why we need to run automated test?
 
 - Guarantee the correctness and quality of our apps and a productive development process
 - Provide us with the confidence to continue implementing the company’s vision
 - Keep delivering great features at a fast and constant pace.
 
-## Programmer Test Principles
+# Programmer Test Principles
 
 Programmer tests should:
 - Minimize programmer waiting.
@@ -20,7 +63,7 @@ Programmer tests should:
 
 [Programmer Test Principles](https://medium.com/@kentbeck_7670/programmer-test-principles-d01c064d7934)
 
-## The Test Pyramid
+# The Test Pyramid
 
 <br/>
 
@@ -31,13 +74,13 @@ Programmer tests should:
 
 There are 3 kinds of test and it is represented by the pyramid:
 
-### 1. Unit/Isolated tests
+## 1. Unit/Isolated tests
 
 They test individual components or functionalities to validate that they work as expected in isolated conditions.
 
 They are the foundation or primary testing strategy because they are swift, reliable, and cheap to write. 
 
-### 2. Integration/System tests
+## 2. Integration/System tests
 
 In order to test how this code interacts with other code (that form the entire software), integration tests need to be run. 
 
@@ -49,14 +92,14 @@ Integration tests are usually necessary, however, we need to avoid using them as
 
 Comparing with unit/isolated tests:
 
-- require at least two components collaborating, tests are bound to be lengthy (e.g. require more setup), 
+- require at least two components collaborating, tests are bound to be lengthy (e.g. require more setup)
 - more complex or more laborious to maintain (e.g. shared state management)
 - fragile (e.g. tiny changes in one component may create a cascade of failing tests that are hard to debug and fix) 
 - tend to increase the amount of code used in all three Given/When/Then test blocks potentially leading to unreadable and unmaintainable blocks of code, then the cost for diving back in later—to extend or debug an issue—is too high
 - the number of integration tests required corresponds to the number of paths/states the system can be in.
 - use real implementations are frequent and also very expensive, time wise operations.
 
-### 3. UI tests
+## 3. UI tests
 
 They represent end-to-end tests we run through the user interface. 
 
@@ -71,11 +114,11 @@ It's valid, but it doesn’t mean we should not write isolated tests. A better s
 ※ In my view, we tend to write only unit tests when we notice the importance of automated tests. But it's not enough since implementing each functions individually requests us to connect them together somewhere. Only with unit tests, there is possibility for us to forget to do it. So, integration tests are important to find such kind of mistake.
 
 
-## Some types of UI tests in iOS
+# Some types of UI tests in iOS
 
 we can take some UI Test strategies.
 
-### XCUITest
+## XCUITest
 
 It allows us to test our app as a "black-box." We interact with and validate the UI elements of our app. 
 We use the `XCUITest`(parts of `XCTest`) APIs that integrate with Accessibility controls.
@@ -86,7 +129,7 @@ That’s why UI tests allocate a very small portion of the testing strategy pyra
 
 [XCUITest](https://developer.apple.com/documentation/xctest/user_interface_tests)
 
-### Acceptance Testing
+## Acceptance Testing
 
 It is the process of validating the system’s compliance with high-level acceptance criteria or business requirements.
 
@@ -98,7 +141,7 @@ But we don’t need to run those tests through the UI.
 
 When possible, write them as plain `XCTest`s that can be faster and more reliable since we have more control over the infrastructure details (network, databases, UI, etc).
 
-### Snapshot Testing
+## Snapshot Testing
 
 They record a “snapshot” of parts of our system in order to compare them against previously recorded states.
 
@@ -113,7 +156,7 @@ We should avoid using snapshot tests to validate the logic/behavior of our appli
 - When a snapshot test fails, it can be hard to figure out why. We’ll probably have to spend some time debugging. 
 - Snapshot tests are also much slower than unit tests since they rely on expensive operations such as rendering the UI and reading stored state from disk
 
-## Refactoring and test
+# Refactoring and test
 
 We mean Refactoring if:
 
@@ -131,7 +174,7 @@ A comprehensive suite of tests (that you trust) gives us the confidence/freedom 
 
 When working on legacy code bases with tests we don't trust (or no tests at all), we won't have that confidence. In that case, we need to add tests to validate the system behavior, and only then start the refactoring. 
 
-## We should strive to test behaviors instead of implementations.
+# We should strive to test behaviors instead of implementations.
 
 Low coupling between tests and implementation details makes tests resilient to changes in production. This way, we’re free to change production implementation without breaking tests.
 
@@ -217,11 +260,11 @@ private extension ViewController {
 
 [sendActions(for:)](https://developer.apple.com/documentation/uikit/uicontrol/1618211-sendactions)
 
-## We should strive to test through the public interfaces
+# We should strive to test through the public interfaces
 
 Related to the above, by not exposing internal/private types to tests, the refactoring was safe and easy. That’s the power of testing only through the public interfaces: behavior is guaranteed to stay the same while we have the freedom to move things around and repurpose the design as needed.
 
-## Dependencies which make unit tests difficult (FIRE rules)
+# Dependencies which make unit tests difficult (FIRE rules)
 
 Many times, external dependencies are key points for good tests, especially tests.
 
@@ -235,7 +278,7 @@ There are some criteria for which one is which, FIRE:
 
 [Recognizing Code that Resists Unit Testing](https://youtu.be/FFk583ZtGd8?t=627)
 
-### (F)ast
+## (F)ast
 
 Function or computed property run very fast.
 
@@ -244,13 +287,13 @@ iOS programs often include code that will execute in response to some external t
 If there’s no way for tests to trigger the code execution immediately, that’s a slow dependency (e.g. Calls to web services, Timer).
 
 
-### (I)solated
+## (I)solated
 
 Neither function has any side effects that would persist beyond the test run.
 
 There are two common ways that dependencies break the rule of isolation: 
 
-#### Global variables
+### Global variables
 
 - Variables defined outside of any type
 - Singletons
@@ -259,7 +302,7 @@ There are two common ways that dependencies break the rule of isolation:
 ※ They aren't a problem if they're read-only, such as constants, When we can change the value of a global , so-called shared mutable state, we ru into the challenges.
 
 
-#### Persistent storage.
+### Persistent storage.
 
 - File system
 - UserDefaults
@@ -271,7 +314,7 @@ It's similar to global variables except that we store the state in something tha
 
 We need each test to run in  a clean state. Earlier test runs or manual testing should not change the outcome of automated tests. Also automated tests should not leave any trace that affect later manual testing.
 
-### (R)epeatable
+## (R)epeatable
 
 The same input always get the same output. No external services that might fail. No race conditions.
 
@@ -289,7 +332,7 @@ We can predict those differences, but there are also unpredictable differences:
 - Writing to a log file - we can run out of disk space
 - Time zone of the machine running tests - when writing tests, it's easy to assume they'll always run in our time zone. But if our team is global, there are hidden problems.
 
-### (E)xaminable:
+## (E)xaminable:
 
 When calling a dependency, how can we know if the call was correct? If there's a return value, tests can simply check the return value. Even when there is no return value, if we can check  a property of the dependency for an expected value, that is also easy. But, a call has an external effect we can't access, that dependency is harder to test.
 
@@ -300,17 +343,63 @@ For example:
 
  When logging events to a server, there is no way for the mobile API to ask for the events we sent.
 
-## Triangulating a specific data point to decide which values to test
+## Making dependencies explicit
+
+Ideally, we want to avoid implicit details in tests. Tests should be short, but every important detail to a test should be clearly defined within the test method. By doing so, when there’s a test failure, we can easily understand the test set up by looking at its short scope (without having to debug or go through many levels of abstractions).
+
+As a rule of thumb, when following the Given/When/Then test structure, every value used in the When and Then portions should be defined in the Given portion.
+
+Instead of
+
+```swift
+
+func test() {
+    // Given 
+    // Looks no dependency
+    let store = makeCacheStore()
+
+    // When 
+    // call testCacheStoreURL() directly
+    try! "some test data".write(to: testCacheStoreURL(), atomically: true, encoding: .utf8)
+
+    // Then
+    XCTAssertNotNil(store.data)
+}
+```
+
+
+
+```swift
+
+func test() {
+    // Given
+    // Pass dependency explicitly
+    let testStoreURL = testCacheStoreURL()
+    let store = makeCacheStore(url: testStoreURL)
+
+    // When
+    // Use defined dependency in Given
+    try! "some test data".write(to: testStoreURL, atomically: true, encoding: .utf8)
+
+    // Then
+    XCTAssertNotNil(store.data)
+}
+```
+
+# (TBD)Make tests descriptive
+
+
+# Triangulating a specific data point to decide which values to test
 
 Triangulating specific data points helps us de-risk and increase the test coverage of the system. For example, assuming that we need to delete local data in 3 days as a business rule. We need to check 3 days, less then 3 days, and more than 3 days at least.
 
 We can improve our process of testing “hidden” behaviors simply by triangulating examples around a specific data point.
 
-## Test tips
+# Test tips
 
 When testing UIViewController, we sometimes meet difficulties because of UIKIt internal(hidden) behaviors.
 
-### UI layout changes not applied immediately
+## UI layout changes not applied immediately
 
 `didEndDisplayingCell` is one of delegate methods of `UITable(Collection)ViewDelegate`. This is triggered only when the cell is removed from the view. But, layout changes is not started immediately, it's done in the next layout cycle instead, due to performance reasons.
 
@@ -329,12 +418,11 @@ Plus, on iOS14+, it seems that we may need to run `RunLoop` one more after asser
 
 [RunLoop](https://developer.apple.com/documentation/foundation/runloop)
 
-### RunLoop tricks
+## RunLoop tricks
 
 There are any other cases which we need to run RunLoop since some of UIKit’s actions aren’t immediate but add an event to the run loop. The run loop is a UIKit mechanism for handling events like mouse and keyboard input. UIKit also uses it for other things. Pushing onto a navigation controller is one example. When we want to check if the specific view is pushed or not(e.g. checking navigation stack), we need to call `RunLoop.current.run(until: Date())`.
 
-
-### Simulate user drags scroll
+## Simulate user drags scroll
 
 When we need to test a pagination request triggered by a user's scroll action. 
 
@@ -357,7 +445,7 @@ private final class DraggingScrollView: UIScrollView {
 }
 ```
 
-### Avoid singletons by Subclass and Override Method.
+## Avoid singletons by Subclass and Override Method.
 
 If existing code uses singletons, we can use Subclass and Override Method technique to avoid their effects.
 
@@ -412,7 +500,7 @@ final class OverrideViewController: UIViewController {
 
 [Subclass and Override: A Legacy Code Technique](https://medium.com/pragmatic-programmers/subclass-and-override-a-legacy-co-de-technique-44dbc6ac1a74)
 
- ## The Transformation Priority Premise
+# The Transformation Priority Premise
 
 It’s tempting to just fix the code at once, but it will increase the risk of mistakes. Moving forward in small steps reduces the risk of mistakes.
 
@@ -437,6 +525,68 @@ The list is ordered roughly so that the simpler transformations are at the top, 
 
 The point is to move in small increments.
 
-[](https://blog.cleancoder.com/uncle-bob/2013/05/27/TheTransformationPriorityPremise.html)
+[The Transformation Priority Premise](https://blog.cleancoder.com/uncle-bob/2013/05/27/TheTransformationPriorityPremise.html)
 
-## TDD Test-driven development
+
+# Code Analysis
+
+It doesn't take much to make an unmaintainable codebase or decrease the quality of a good codebase. It's the same as test codebase.
+
+There are indicators help us examine the past and evaluate the present state of the test codebase.
+
+## Overall test lines of code per production lines of code
+
+Revealing how much work has been done in a test suite
+
+※ It can't be accurate about how much of the actual codebase has been tested, or whether tests were written first or not. But it shows the effort the team put into testing overall.
+
+## Test lines of code per production lines of code over time
+
+The ratio of each commit in a graph and let the graph lines tell the story, regardless of whether the tests were written first or last.
+
+If the test lines of code index is flat or with small spikes when compared to the production lines of code index, you know the codebase is not built with testing.
+
+## Conditional statements per test file
+
+Understanding whether conditional logic is being separated in multiple tests instead of one. Tests should also be responsible for a single objective. The goal is to have a clearer view of what is being tested. Also, when a test fails it's much easier to understand the scope that generated such failure.
+
+## Comments per test file
+
+Commented out tests signifies missing checks in the system's behavior. When deadlines are approaching and pressure increases it might be tempting for some teams to defer the implementation or rewriting of these tests to the future, after they have made the deadline. This behavior should be considered harmful, as clearly not all automated checks have been performed to the system, thus it increases the probability of deploying faulty behaviors to customers.
+
+## Setup lines of code per test file
+
+It quickly shows how developers set up their systems under test(※).
+
+※ Systems under test: Whatever thing we are testing 
+[SUT](http://xunitpatterns.com/SUT.html)
+
+
+It should signify that there is an excess of configuration code for the system under test to start for each test. A lengthy configuration usually signifies a lot of dependencies that are required from the system under test to start and function properly.
+
+These behaviors can help us point out design issues with our components. For example, component A has a dependency on the concrete component B, then to test A we may have to also create and configure component B. The configuration of B can create an excess of test setup code. We can fix these problems by hiding concrete collaborator implementations(dependency inversion) behind an interface/protocol and using the real implementation in the tests only when actually required, and a reusable test-double implementation everywhere else.
+
+## Lines of code per test method 
+
+It allows us to see the consistency level of our tests' structure. To make our tests more readable and easier to maintain, we can follow the arrange/act/assert(or given/when/then) paradigms. A test method should be small, concise and test one and only one behavior at a time. We can:
+
+- Simplifying setup
+- Removing duplication
+- Clarifying intention 
+- Removing statements that are being repeated more than once
+- Organizing assertion code
+- Creating functions that hide complexity and allow extensibility
+
+## Code Coverage
+
+It shows the percentage of code exercised by tests. A high code coverage may indicate developers' consistency for writing tests along with the production code. A low (or zero) code coverage implies that the team doesn't care for automated testing.
+
+※ It doesn't guarantee that all the production code behavior has been checked through the tests.
+
+## Test time per commit
+
+It shows the accumulating test times per commit. There are various factors that can affect a project's  test times, so there are a lot of options for us to check and try to improve.
+
+- Try removing unnecessary operations and refactoring your test cases to induce reusability with the help of properties, functions and assertions.
+- Try to remove expensive operations that integrate two or more components instead of testing them in isolation like avoiding real configurations and implementations of components(These types of integration tests can be helpful. But we can consider optimizing or moving them to a separate test suite.)
+- Move tests to a separate test suite(e.g. when start separating our code into independent modules)
