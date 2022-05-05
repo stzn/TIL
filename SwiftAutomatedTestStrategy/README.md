@@ -114,7 +114,6 @@ It's valid, but it doesn’t mean we should not write isolated tests. A better s
 
 ※ In my view, we tend to write only unit tests when we notice the importance of automated tests. But it's not enough since implementing each functions individually requests us to connect them together somewhere. Only with unit tests, there is possibility for us to forget to do it. So, integration tests are important to find such kind of mistake.
 
-
 # Some types of UI tests in iOS
 
 we can take some UI Test strategies.
@@ -287,7 +286,6 @@ iOS programs often include code that will execute in response to some external t
 
 If there’s no way for tests to trigger the code execution immediately, that’s a slow dependency (e.g. Calls to web services, Timer).
 
-
 ## (I)solated
 
 Neither function has any side effects that would persist beyond the test run.
@@ -369,7 +367,6 @@ func test() {
 ```
 
 
-
 ```swift
 
 func test() {
@@ -395,49 +392,67 @@ When testing with the real environment(e.g. File system, Core Data), we must res
 
 Even though calling the same method int the long run, it's better to create a tiny DSL to make tests descriptive.
 
-Assuming that related to the above, we have a method which delete a file and call it on `setUp` and `tearDown`.
+For example, when we test async code, we have to wait for async result.
 
 ```swift
-class SomeTest: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        deleteFile(at: testFileURL)
+final class ItemLoader {
+    func loadItems(@escaping: (Result<[Item], Error>) -> Void) {
+        // ...
     }
+}
 
-    override func tearDown() {
-        super.tearDown()
-        deleteFile(at: testFileURL)
+class ItemLoaderTest: XCTestCase {
+    func test_loadTwice_getSameItems() {
+        let loader = ItemLoader()
+
+        let exp = expectation(description: "wait for load")
+        loader.loadItems { result in
+            let firstItems = XCTUnwrap(try result.get())) 
+            loader.loadItems { result in
+                let secondItems = XCTUnwrap(try result.get())) 
+                XCTAssertEqual(firstItems, secondItems)
+                exp.fulfill()
+            }
+        }
+        wait(for: [exp], timeout: 1)
     }
-
-    private func deleteFile(at url: URL) { /*  */ }
 }
 ```
 
-Even though both use `deleteFile`, we can send our intension to other developers by creating DSLs.
+This nested code is hard to read. INstead we can extract the code into a function:
 
 ```swift
-class SomeTest: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        setupEmptyStore(at: testFileURL)
+class ItemLoaderTest: XCTestCase {
+    func test_load_getItems() throws {
+        // Given
+        let loader = ItemLoader()
+
+        // When
+        let firstItems = XCTUnwrap(try? load(loader).get()) 
+        let secondItems = XCTUnwrap(try? load(loader).get()) 
+
+        // Then
+        XCTAssertEqual(firstItems, secondItems)
     }
 
-    override func tearDown() {
-        super.tearDown()
-        clearSideEffects(at: testFileURL)
+    private func load(loader: ItemLoader) -> Result <[Item], Error> {
+        var receivedResult: Result <[Item], Error>!
+        let exp = expectation(description: "wait for load")
+        loader.loadItems {
+            receivedResult = $0
+            exp.fulfill()
+        }
+        wait(for: [exp], timeout: 1)
+        return receivedResult
     }
-
-    private func setupEmptyStore(at url: URL) {
-        deleteFile(at: testFileURL)
-    }
-
-    private func clearSideEffects(at url: URL) {
-        deleteFile(at: testFileURL)
-    }
-
-    private func deleteFile(at url: URL) { /*  */ }
 }
 ```
+
+This private method:
+
+- Made the test simpler
+- Enabled us to read the test in the natural order(Given/When/Then)
+- Enabled us to reuse the same method in many tests
 
 # Triangulating a specific data point to decide which values to test
 
