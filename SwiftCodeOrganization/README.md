@@ -20,6 +20,7 @@
   - [Good abstraction & SOLID principles](#good-abstraction--solid-principles)
   - [Good abstraction & Design patterns](#good-abstraction--design-patterns)
   - [Good abstraction & Universal abstraction](#good-abstraction--universal-abstraction)
+  - [Similar is not same](#similar-is-not-same)
 - [Domain models](#domain-models)
   - [Unified vs Segregated models](#unified-vs-segregated-models)
   - [Creating Segregated models (DTO)](#creating-segregated-models-dto)
@@ -39,6 +40,11 @@
   - [Horizontal slicing](#horizontal-slicing)
   - [Horizontal slicing within Feature vertical slicing](#horizontal-slicing-within-feature-vertical-slicing)
   - [Horizontal modular slicing within Feature vertical slicing](#horizontal-modular-slicing-within-feature-vertical-slicing)
+- [Separating platform-specific and platform-agnostic components](#separating-platform-specific-and-platform-agnostic-components)
+  - [Reusability of frameworks](#reusability-of-frameworks)
+  - [Build time improvement](#build-time-improvement)
+  - [Test time improvement](#test-time-improvement)
+  - [Notice: we should run all tests on all supported platforms](#notice-we-should-run-all-tests-on-all-supported-platforms)
 - [Codebase analysis(Health check)](#codebase-analysishealth-check)
   - [The number of files changed per commit](#the-number-of-files-changed-per-commit)
   - [Lines of code per file](#lines-of-code-per-file)
@@ -244,7 +250,9 @@ For example, assuming that there is a protocol to communicate with an interface 
 
 ### Notice: single-purpose doesn't mean a single method
 
-Common misunderstanding is that interfaces must have only one method. Ideally, it could be one since it's much easier to deal with dependencies that do only one thing. Also, we don't need to care about the order of method invocations. However, it's sometimes not true. If they are related and always change together, are used together, they should be in the same interface. If not, we will always have to import and couple with different module.
+Common misunderstanding is that interfaces must have only one method. Just being small does not make sense. The key is "single-purpose". For example, not every protocol necessarily has only one method.
+
+Ideally, it could be one since it's much easier to deal with dependencies that do only one thing. Also, we don't need to care about the order of method invocations. However, it's sometimes not true. If they are related and always change together, are used together, they should be in the same interface. If not, we will always have to import and couple with different module.
 
 The thing is whether **all methods are related and responsible for one thing or not**.
 
@@ -300,6 +308,15 @@ Examples are shown in the following:
 - [From the Decorator pattern to handleEvents](#from-the-decorator-pattern-to-handleevents)
 - [From the Composition pattern to catch](#from-the-composition-pattern-to-catch)
 
+## Similar is not same
+
+When we find the similar methods(e.g. get, delete, etc) in two interfaces, we are tempered to create one shared interface. But, sometimes it's not right since the usage of them are different by their clients, and the shared interface could not represent what each client needs. 
+
+In addition, it gets harder in case of multiple modular design. If we create "Shared" module and put the shared interfaces in it, other features which need the interfaces always have to import the shared module into their modules. And this will increase maintenance cost (e.g. every time the shared module changes, we need to recompile and redeploy all other modules). 
+
+Each feature should define its own protocols in its own module. Then, the modules can become simpler to maintain since the features are fully decoupled, and the code is simpler since the protocols define the precise methods they need.
+
+※ It won't say that we must have separate concrete implementations for each interface. We can use the same implementations across several interfaces(e.g. store data in CoreData, accessing a server, etc)
 
 # Domain models
 
@@ -684,6 +701,28 @@ Break down the horizontal slices within the feature into many modules
 
 Good: Create a stronger separation between the components:
 Not good: More complex and could increase management cost
+
+# Separating platform-specific and platform-agnostic components
+
+By separating platform-specific and platform-agnostic components, we can make the app more flexible and maintainable.
+
+## Reusability of frameworks
+
+The platform-agnostic components are reusable in multiple platforms. Also, if we create an iOS specific framework, we can develop the iOS components without having to run an application, which is faster. And we can share them across iOS apps.
+
+## Build time improvement
+
+When we change one module, we don't need recompile/retest/redeploy other modules.
+
+## Test time improvement
+
+The platform-agnostic framework can run on macOS target. This means we can run tests without Host Application(e.g. iOS simulator) and it's faster than with it.
+
+## Notice: we should run all tests on all supported platforms
+
+It’s common for components to behave differently in distinct platforms. To guarantee the consistency of the behavior of the system on all platforms it’s quite important to run all tests on all supported platforms.
+
+There's a cost, but we can decrease it by decoupling modules and breaking down them into separate projects.
 
 # Codebase analysis(Health check)
 
