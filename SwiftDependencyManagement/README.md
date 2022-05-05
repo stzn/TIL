@@ -1,99 +1,101 @@
-# How can we manage dependencies?
-
-- [How can we manage dependencies?](#how-can-we-manage-dependencies)
-  - [Some aspects of good architecture](#some-aspects-of-good-architecture)
-  - [Modular design goal](#modular-design-goal)
-  - [Decoupling business logics(rules) from any framework(infrastructure) logics](#decoupling-business-logicsrules-from-any-frameworkinfrastructure-logics)
-    - [Two types of business logic](#two-types-of-business-logic)
-      - [Application-specific business logic](#application-specific-business-logic)
-      - [Application-agnostic business logic](#application-agnostic-business-logic)
-    - [Framework (Infrastructure) logic](#framework-infrastructure-logic)
-    - [Dependency Inversion](#dependency-inversion)
-  - [Two kinds of dependencies](#two-kinds-of-dependencies)
-    - [Stable dependencies](#stable-dependencies)
-    - [Volatile dependencies](#volatile-dependencies)
-  - [Composition Root](#composition-root)
-    - [What are the merits of composition root?](#what-are-the-merits-of-composition-root)
-      - [Make parallel development easier](#make-parallel-development-easier)
-      - [Testability](#testability)
-      - [Controllable Object Lifetime management](#controllable-object-lifetime-management)
-      - [Explicit object graph](#explicit-object-graph)
-    - [Where is composition root?](#where-is-composition-root)
-      - [Composition Root should not be public](#composition-root-should-not-be-public)
-    - [Composer](#composer)
-      - [Composer rules](#composer-rules)
-    - [Composition Root and navigation across modules](#composition-root-and-navigation-across-modules)
-    - [Composition Root and dependency lifetime management](#composition-root-and-dependency-lifetime-management)
-      - [Singleton Lifestyle](#singleton-lifestyle)
-      - [Transient Lifestyle](#transient-lifestyle)
-      - [Scoped Lifestyle](#scoped-lifestyle)
-    - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
-    - [Do we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
-    - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
-    - [How to test the Composition Root?](#how-to-test-the-composition-root)
-  - [DI patterns](#di-patterns)
-    - [Constructor injection](#constructor-injection)
-    - [Method injection](#method-injection)
-    - [Property injection(Setter injection)](#property-injectionsetter-injection)
-    - [Which one do we choose?](#which-one-do-we-choose)
-  - [Some stages of DI](#some-stages-of-di)
-    - [The Singleton pattern (from the Design Patterns book of GOF)](#the-singleton-pattern-from-the-design-patterns-book-of-gof)
-    - [Swift singleton](#swift-singleton)
-    - [Singleton and test](#singleton-and-test)
-      - [Property injection](#property-injection)
-    - [Global Mutable Shared State](#global-mutable-shared-state)
-    - [Singleton(Global Mutable Shared State)'s (possible) problems](#singletonglobal-mutable-shared-states-possible-problems)
-    - [S(s)ingleton(Global Mutable Shared State) itself is not bad](#ssingletonglobal-mutable-shared-state-itself-is-not-bad)
-    - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
-    - [Avoid breaking modules](#avoid-breaking-modules)
-      - [extension](#extension)
-      - [Dependency Inversion](#dependency-inversion-1)
-    - [Component Adapter Pattern](#component-adapter-pattern)
-  - [Don't skip stages](#dont-skip-stages)
-  - [More consideration about DI](#more-consideration-about-di)
-    - [Injection Constructor should be simple (don't add behavior)](#injection-constructor-should-be-simple-dont-add-behavior)
-    - [Constructor Over-injection is code smell](#constructor-over-injection-is-code-smell)
-    - [Create a good abstraction](#create-a-good-abstraction)
-      - [Interface Segregation Principle](#interface-segregation-principle)
-      - [Interfaces have several roles](#interfaces-have-several-roles)
-      - [Interfaces should be single-purpose and small](#interfaces-should-be-single-purpose-and-small)
-      - [How can we collaborate these different interfaces in different module?](#how-can-we-collaborate-these-different-interfaces-in-different-module)
-      - [Similar is not same](#similar-is-not-same)
-      - [short code　≠ clean dependencies](#short-code-clean-dependencies)
-    - [Restrict from creating and using dependencies in the same class](#restrict-from-creating-and-using-dependencies-in-the-same-class)
-      - [Middle man anti-pattern](#middle-man-anti-pattern)
-    - [Transition via delegate or closure](#transition-via-delegate-or-closure)
-      - [Factory does not reduce coupling](#factory-does-not-reduce-coupling)
-    - [Add a new method to an existing protocol should be considered a red flag](#add-a-new-method-to-an-existing-protocol-should-be-considered-a-red-flag)
-      - [Break all the components conforming to the protocol,](#break-all-the-components-conforming-to-the-protocol)
-      - [Implement all methods](#implement-all-methods)
-      - [Lose its Single Responsibility](#lose-its-single-responsibility)
-      - [Expose methods that not all clients need](#expose-methods-that-not-all-clients-need)
-      - [It passes a message to the team that “it’s ok to add many methods to this protocol”](#it-passes-a-message-to-the-team-that-its-ok-to-add-many-methods-to-this-protocol)
-      - [How to solve?](#how-to-solve)
-    - [Interception](#interception)
-      - [The Decorator pattern](#the-decorator-pattern)
-      - [Command-Query Separation(CQS)](#command-query-separationcqs)
-      - [Cache(Example)](#cacheexample)
-      - [Cross-cutting concerns](#cross-cutting-concerns)
-      - [The Decorator pattern and code duplication(DRY violation)](#the-decorator-pattern-and-code-duplicationdry-violation)
-      - [Event driven design](#event-driven-design)
-      - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
-      - [Side-effect free core business rules](#side-effect-free-core-business-rules)
-      - [Functional core, Imperative share](#functional-core-imperative-share)
-    - [Unified vs Segregated models](#unified-vs-segregated-models)
-      - [The problem of a unified model](#the-problem-of-a-unified-model)
-      - [Creating Segregated models (DTO)](#creating-segregated-models-dto)
-      - [Be careful not to cross boundaries when they are in the same project](#be-careful-not-to-cross-boundaries-when-they-are-in-the-same-project)
-      - [Be careful not to diverge related concepts too much at the same time](#be-careful-not-to-diverge-related-concepts-too-much-at-the-same-time)
-      - [Using a unified model controlled by an external team](#using-a-unified-model-controlled-by-an-external-team)
-    - [Domain model and DI](#domain-model-and-di)
-  - [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
-  - [Separation pros/cons](#separation-proscons)
+- [Words](#words)
+- [Some aspects of good architecture](#some-aspects-of-good-architecture)
+- [Modular design goal](#modular-design-goal)
+- [Decoupling business logics(rules) from any framework(infrastructure) logics](#decoupling-business-logicsrules-from-any-frameworkinfrastructure-logics)
+  - [Two types of business logic](#two-types-of-business-logic)
+    - [Application-specific business logic](#application-specific-business-logic)
+    - [Application-agnostic business logic](#application-agnostic-business-logic)
+  - [Framework (Infrastructure) logic](#framework-infrastructure-logic)
+  - [Dependency Inversion](#dependency-inversion)
+- [Two kinds of dependencies](#two-kinds-of-dependencies)
+  - [Stable dependencies](#stable-dependencies)
+  - [Volatile dependencies](#volatile-dependencies)
+- [Composition Root](#composition-root)
+  - [What are the merits of composition root?](#what-are-the-merits-of-composition-root)
+    - [Make parallel development easier](#make-parallel-development-easier)
+    - [Testability](#testability)
+    - [Controllable Object Lifetime management](#controllable-object-lifetime-management)
+    - [Explicit object graph](#explicit-object-graph)
+  - [Where is composition root?](#where-is-composition-root)
+    - [Composition Root should not be public](#composition-root-should-not-be-public)
+  - [Composer](#composer)
+    - [Composer rules](#composer-rules)
+  - [Composition Root and navigation across modules](#composition-root-and-navigation-across-modules)
+  - [Composition Root and dependency lifetime management](#composition-root-and-dependency-lifetime-management)
+    - [Singleton Lifestyle](#singleton-lifestyle)
+    - [Transient Lifestyle](#transient-lifestyle)
+    - [Scoped Lifestyle](#scoped-lifestyle)
+  - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
+  - [Do we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
+  - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
+  - [How to test the Composition Root?](#how-to-test-the-composition-root)
+- [DI patterns](#di-patterns)
+  - [Constructor injection](#constructor-injection)
+  - [Method injection](#method-injection)
+  - [Property injection(Setter injection)](#property-injectionsetter-injection)
+  - [Which one do we choose?](#which-one-do-we-choose)
+- [Some stages of DI](#some-stages-of-di)
+  - [The Singleton pattern (from the Design Patterns book of GOF)](#the-singleton-pattern-from-the-design-patterns-book-of-gof)
+  - [Swift singleton](#swift-singleton)
+  - [Singleton and test](#singleton-and-test)
+    - [Property injection](#property-injection)
+  - [Global Mutable Shared State](#global-mutable-shared-state)
+  - [Singleton(Global Mutable Shared State)'s (possible) problems](#singletonglobal-mutable-shared-states-possible-problems)
+  - [S(s)ingleton(Global Mutable Shared State) itself is not bad](#ssingletonglobal-mutable-shared-state-itself-is-not-bad)
+  - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
+  - [Avoid breaking modules](#avoid-breaking-modules)
+    - [extension](#extension)
+    - [Dependency Inversion](#dependency-inversion-1)
+  - [Component Adapter Pattern](#component-adapter-pattern)
+- [Don't skip stages](#dont-skip-stages)
+- [More consideration about DI](#more-consideration-about-di)
+  - [Injection Constructor should be simple (don't add behavior)](#injection-constructor-should-be-simple-dont-add-behavior)
+  - [Constructor Over-injection is code smell](#constructor-over-injection-is-code-smell)
+  - [Create a good abstraction](#create-a-good-abstraction)
+    - [Interface Segregation Principle](#interface-segregation-principle)
+    - [Interfaces have several roles](#interfaces-have-several-roles)
+    - [Interfaces should be single-purpose and small](#interfaces-should-be-single-purpose-and-small)
+    - [How can we collaborate these different interfaces in different module?](#how-can-we-collaborate-these-different-interfaces-in-different-module)
+    - [Similar is not same](#similar-is-not-same)
+    - [short code　≠ clean dependencies](#short-code-clean-dependencies)
+  - [Restrict from creating and using dependencies in the same class](#restrict-from-creating-and-using-dependencies-in-the-same-class)
+    - [Middle man anti-pattern](#middle-man-anti-pattern)
+  - [Transition via delegate or closure](#transition-via-delegate-or-closure)
+    - [Factory does not reduce coupling](#factory-does-not-reduce-coupling)
+  - [Add a new method to an existing protocol should be considered a red flag](#add-a-new-method-to-an-existing-protocol-should-be-considered-a-red-flag)
+    - [Break all the components conforming to the protocol,](#break-all-the-components-conforming-to-the-protocol)
+    - [Implement all methods](#implement-all-methods)
+    - [Lose its Single Responsibility](#lose-its-single-responsibility)
+    - [Expose methods that not all clients need](#expose-methods-that-not-all-clients-need)
+    - [It passes a message to the team that “it’s ok to add many methods to this protocol”](#it-passes-a-message-to-the-team-that-its-ok-to-add-many-methods-to-this-protocol)
+    - [How to solve?](#how-to-solve)
+  - [Interception](#interception)
+    - [The Decorator pattern](#the-decorator-pattern)
+    - [Command-Query Separation(CQS)](#command-query-separationcqs)
+    - [Cache(Example)](#cacheexample)
+    - [Cross-cutting concerns](#cross-cutting-concerns)
+    - [The Decorator pattern and code duplication(DRY violation)](#the-decorator-pattern-and-code-duplicationdry-violation)
+    - [Event driven design](#event-driven-design)
+    - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
+    - [Side-effect free core business rules](#side-effect-free-core-business-rules)
+    - [Functional core, Imperative share](#functional-core-imperative-share)
+  - [Unified vs Segregated models](#unified-vs-segregated-models)
+    - [The problem of a unified model](#the-problem-of-a-unified-model)
+    - [Creating Segregated models (DTO)](#creating-segregated-models-dto)
+    - [Be careful not to cross boundaries when they are in the same project](#be-careful-not-to-cross-boundaries-when-they-are-in-the-same-project)
+    - [Be careful not to diverge related concepts too much at the same time](#be-careful-not-to-diverge-related-concepts-too-much-at-the-same-time)
+    - [Using a unified model controlled by an external team](#using-a-unified-model-controlled-by-an-external-team)
+  - [Domain model and DI](#domain-model-and-di)
+- [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
+- [Separation pros/cons](#separation-proscons)
 - [External dependencies count & Introducing 3rd-party libraries](#external-dependencies-count--introducing-3rd-party-libraries)
-  - [Resources](#resources)
+- [Resources](#resources)
 
-## Some aspects of good architecture
+# Words
+
+component: functions, modules, classes, protocols, interfaces, data structures, dependencies and any language/platform or component-like types in the codebase
+
+# Some aspects of good architecture
 
 - Low cost for change
     - Welcome requirement changes
@@ -106,7 +108,7 @@
 - Low coupling, high cohesion
 - Allow independent development(and development), and testing in isolation/parallel)
 
-## Modular design goal
+# Modular design goal
 
 The goal is to achieve low coupling between modules, and high cohesion within each individual module.
 
@@ -123,7 +125,7 @@ As a guideline, ask ourselves:
 
 "Can we refactor or add new features to this module without touching any files of the other module?"
 
-## Decoupling business logics(rules) from any framework(infrastructure) logics 
+# Decoupling business logics(rules) from any framework(infrastructure) logics 
 
 - Business logics(rules): **what** the system do
 - Framework(Infrastructure) logics: **how** to do
@@ -136,17 +138,17 @@ This difference is very important to achieve the modular design goal
 - It makes changes in the codebase easier and cheaper, enabling the team to welcome new requirements
 - It makes the codebase more resilient as it decreases the number of places that can break when a code change is required(avoiding component, modular and even systemic level break)
 
-### Two types of business logic
+## Two types of business logic
 
 There are two common types of business logic. If we don’t distinguish between them when discussing with other developers, the lack of context can lead to miscommunication.
 
-#### Application-specific business logic
+### Application-specific business logic
 
 Use Cases describe application-specific business logic and is often implemented by a Controller (there are many alternative names like Interactor, Service, etc) type collaborating with other components (coordinating domain models and application infrastructure abstractions). Controllers deal with application interactions (e.g., coordinating asynchronous operations from collaborators) with strict boundaries (protocol/closure) to protect the application from depending on low-level details (e.g. 3rd-party frameworks). 
 
 It should not depend on concrete (specific) framework details.
 
-#### Application-agnostic business logic
+### Application-agnostic business logic
 
 Domain Models describe application-agnostic business logic. This kind of logic is independent of application, also known as core business logic. 
 
@@ -156,7 +158,7 @@ It should not depend on any application or framework details.
 
 Domain Models are usually tiny little objects when compared with the size of the system. But its importance is much greater than its size. Domain Models implement the essential business logic (the code that really matters to the business), so we don’t lose sight of the domain within the technical and infrastructure complexities. Notice how, for example, we strive to keep our models simple, with no asynchronous or impure behavior (application detail) leaking into the domain models.
 
-### Framework (Infrastructure) logic
+## Framework (Infrastructure) logic
 
 Framework (Infrastructure) logic should not implement any business rules. Mixing business logic with infrastructure details is one of the most common (and one of the biggest mistakes) we find in codebases (e.g. Database and Network clients implementing validation or business rules operations or Domain Models inheriting from framework types, CoreData’s `NSManagedObject`). Doing so will scatter business logic across your code with no central source of truth. Tangled business rules and infrastructure code is harder to use, reuse, maintain, and test.
 
@@ -165,7 +167,7 @@ For example, assuming that changing our local database from CoreData to Realm fo
 The more we separate code (the less a piece of code knows/does), the easier it is to develop, use, reuse, maintain, and test (because it will naturally depend on less context). Infrastructure interface implementations should be as simple as possible. It should only fulfill infrastructure commands sent by the Controller types through the abstract interface (protocol/closure) like fetch something from the cache, store cache, download an image from a remote URL, etc.
 
 
-### Dependency Inversion
+## Dependency Inversion
 
 To achieve the separation between business and framework logics, Dependency Inversion is essential. It means that instead of depending on framework requirements, we make the framework depend on our needs.
 
@@ -185,14 +187,14 @@ The boundary provides the flexibility for making the other two participants (hig
 
 <img src="./images/dependency_inversion.png" alt= "functional core" width="100%">
 
-## Two kinds of dependencies
+# Two kinds of dependencies
 
 What to inject and what not to inject
 
 Don’t have to treat all dependencies equally.
 It’s important to know how to distinguish between types that pose no danger and types that may tighten an application’s degree of coupling.
 
-### Stable dependencies
+## Stable dependencies
 
 - Are classes or modules which have already exist (primitive classes like `String`, `Int`)
 - Expect that new versions won't contain breaking changes
@@ -202,7 +204,7 @@ It’s important to know how to distinguish between types that pose no danger an
 ※ Many components of `Foundation` can be treated as a stable dependency(e.g. `JSONDecoder`). But, `URLSession` is different. An HTTP request is a slow, asynchronous, and non-deterministic operation. The request may fail for multiple reasons that we cannot predict (server is down, server is broken, slow/no connectivity...). `URLSession` also exposes an awkward API, with a lot of optionals.
 So, this is a **Volatile dependency**.
 
-### Volatile dependencies
+## Volatile dependencies
 
 Volatile Dependencies are dependencies that change frequently. It's advised to avoid coupling our code with them to avoid having to recompile/reimplement/retest/redeploy our code all the time.
 
@@ -211,7 +213,7 @@ Volatile Dependencies are dependencies that change frequently. It's advised to a
 - Aren’t installed on all machines in the development organization(= optional)
 - Contain nondeterministic behavior(e.g. `Date`)
 
-## Composition Root
+# Composition Root
 
 > A Composition Root is a (preferably) unique location in an application where modules are composed together.  
 > [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
@@ -239,19 +241,19 @@ The Composition Root usually doesn't have logic. Its responsibility is to instan
 Also, common misunderstanding point is that: 
 **The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module.**
 
-### What are the merits of composition root?
+## What are the merits of composition root?
 
-#### Make parallel development easier
+### Make parallel development easier
 
 Each modules are independent. They don't know anything about other modules. Even when we want to add new feature, we don't need to touch other modules.
 
-#### Testability
+### Testability
 
 Each feature module can be tested independently.  
 We can do unit tests for each of them(including snapshot test= UI regression test).  
 Also we can do integration tests and acceptance tests since we can easily replace dependencies with mocks by composing modules like the Composition Root.
 
-#### Controllable Object Lifetime management
+### Controllable Object Lifetime management
 
 Only Composition Root knows when and how instances are created and released. Modules should not know whether lifecycle of other modules' instances(singleton, transient... described later)  
 
@@ -260,12 +262,12 @@ Also we can control framework specific things (e.g. UI must add `weak` to avoid 
 Object instantiation is a responsibility that should ideally take place in a single place, rather than scattered around the codebase.
 Otherwise, if at some point some class needs more dependencies, we would have to change the other class which creates it to provide those dependencies. That's a violation of the Open/Closed principle (a change in one component should not need a change in another component). It could affect parallel development.
 
-#### Explicit object graph  
+### Explicit object graph  
 
 Composition root is the single point which create instances and compose them, so we can confirm all dependencies from the Composition Root explicitly.
 ※ It does not mean that Composition root is a class or a method.
 
-### Where is composition root?
+## Where is composition root?
 
 It's said,
 
@@ -282,15 +284,14 @@ In the below image, the `SceneDelegate` centralizes the instantiation and compos
 
 <img src="./images/modular_composition_root.png" alt= "modular composition root" width="100%">
 
-
-#### Composition Root should not be public
+### Composition Root should not be public
 
 The Composition Root is the root of the object graph. Thus, it and its components shouldn’t be referenced by other modules.
 
 Making sure the Composition Root types are not public is a great way to enforce such rules, as the project wouldn’t even compile if another module references the Composition Root.
 
 
-### Composer
+## Composer
 
 Like `SceneDelegate` in the above example, an any object or method that composes dependencies is called **Composer**. It’s an important part of the Composition Root.
 
@@ -301,11 +302,11 @@ For example, we can define composers for each our module.
 
 <img src="./images/composition_root1.png" alt= "composition_root 1" width="100%">
 
-#### Composer rules
+### Composer rules
 
 Composers should only be used in the Composition Root. And only composers can use other composers. What that means is that we shouldn’t be interacting with composers anywhere else in our codebase.
 
-### Composition Root and navigation across modules
+## Composition Root and navigation across modules
 
 In a large app, it's very important that we can develop each module separately. So, it's better not to bind modules each other since it could disturb our progress.
 
@@ -327,7 +328,7 @@ The above assumes that `SceneDelegate` manages navigation stack (It's the simple
 
 Of course, if we handle more complicated app, it's easy to make `SceneDelegate` quite messy. So, we can define new components to do navigation logics in the Composition Root like Flow, Coordinator, Router.
 
-### Composition Root and dependency lifetime management
+## Composition Root and dependency lifetime management
 
 As described in the [Controllable Object Lifetime management](#controllable-object-lifetime-management), the Composition Root(Composer) controls the lifetime of dependencies.
 
@@ -335,7 +336,7 @@ The Composition Root decides when instances are created, whether to share instan
 
 Then, we need to think of the lifetime of the dependencies(= lifestyle). There are some lifestyle patterns.
 
-#### Singleton Lifestyle
+### Singleton Lifestyle
 
 ※ It's different from the Singleton design pattern.
 
@@ -344,32 +345,32 @@ A single instance is perpetually reused. The resulting behavior is similar to th
 Note that, single lifestyle instances need to be thread-safe since it can be shared across many modules.
 
 
-#### Transient Lifestyle
+### Transient Lifestyle
 
 Another lifestyle is the Transient Lifestyle. A transient instance is created and destroyed as requested. It's not shared across modules, so we don't need to care about thread-safety. But be careful to use it since it's the least efficient way since it can cause huge instances.
 
 In many cases, we can safely exchange the Transient Lifestyle for a Scoped Lifestyle, where access to the Dependency is also guaranteed to be sequential[
 
-#### Scoped Lifestyle
+### Scoped Lifestyle
 
 At most, one instance of each type is served per an implicitly or explicitly defined scope. We can reuse them only in the defined scope. For example, an instance can be alive during one process(OperationQueue, button tap action, etc).
 
-### Does the Composition Root become too big?
+## Does the Composition Root become too big?
 
 Like the above, we can create several components in the Composition Root. The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module. 
 
 In addition, we could define Factory to create a proper instance in each module. But be careful that we should use it only in the Composition Root.
 
-### Do we need to inject so much dependencies in Composition Root?
+## Do we need to inject so much dependencies in Composition Root?
 
 Apparently yes. But in facet, it's often said that we have many implicit dependencies. So, actual number of dependencies are not different. The Composition Root makes them explicit and we can get a clear dependency graph.
 
 
-### We don't need all dependencies should be initialized immediately
+## We don't need all dependencies should be initialized immediately
 
 Instantiating the concrete components does not mean that all dependencies are needed to load immediately. We can lazily load them if we need(e.g. using closures to provide dependencies's instances).
 
-### How to test the Composition Root?
+## How to test the Composition Root?
 
 They need to test in the Integration Test. For example, we can test it by simulating app Launch, state transitions.
 
@@ -384,11 +385,9 @@ This allows us to pass stubbed infrastructure implementations during tests inste
 
 Plus, we can use `lazy` properties whose initial value is not calculated until the first time they are used. So, if we provides their initial values via the convenience initializer, the system use them. If not, the system uses the default ones.
 
+# DI patterns
 
-## DI patterns
-
-
-### Constructor injection
+## Constructor injection
 
 It is the act of statically defining the list of required Dependencies by specifying them as parameters to the class’s constructor.
 
@@ -396,7 +395,7 @@ It's the most preferable way and we should use it as much as possible.
 
 Inject dependencies when constructing an object. It guarantees the existence of dependencies when instantiated and can eliminate unnecessary optionality and mutability. Also, client of the object can understand the dependencies explicitly.
 
-### Method injection
+## Method injection
 
 It supplies a consumer with dependencies by passing it as method argument on a method called.
 
@@ -415,8 +414,7 @@ On the other hand, it needs to add limited applicability to public API. This mea
 
 It is unsuitable when used within the Composition Root([Composition Root](#composition-root)). Within a Composition Root, it can initialize a previously constructed class with its dependencies. Doing so, however, leads to [Temporal Coupling](https://blog.ploeh.dk/2011/05/24/DesignSmellTemporalCoupling/), so it’s highly discouraged.
 
-
-### Property injection(Setter injection)
+## Property injection(Setter injection)
 
 It allows a "local" default to be replaced via a public settable property.
 
@@ -433,17 +431,17 @@ Constructor injection is more preferable and the usage should be limited like:
 
 ※ We need to be careful not to forget to supply the dependencies. This is Temporal Coupling.
 
-### Which one do we choose?
+## Which one do we choose?
 
 In most cases, default choice should be constructor injection, but there are situations where one of the other patterns affords a better alternative.
 
 [Injection Pattern](./images/injection_patterns.png)
 
-## Some stages of DI
+# Some stages of DI
 
 ※ There is nothing wrong with them. It's just a level of abstraction. Each of them has pros/cons. It depends on what we want to achieve and it's important to think of our situations.
 
-### The Singleton pattern (from the Design Patterns book of GOF)
+## The Singleton pattern (from the Design Patterns book of GOF)
 
 The Singleton pattern is a way to make sure that a class has only one instance
 
@@ -467,7 +465,7 @@ let client = ServerAPIClient.shared
 extension ServerAPIClient {}
 ```
 
-### Swift singleton
+## Swift singleton
 
 In Swift, singleton which Swift developer used is different from the above definition. For example,
 
@@ -486,7 +484,7 @@ final class ServerAPIClient {
 }
 ```
 
-### Singleton and test
+## Singleton and test
 
 How can we test a singleton? 
 
@@ -508,7 +506,7 @@ final class ServerAPIClient {
 
 Like the above, we can use the singleton instance(`shared`), but how can we replace it with something like mock for test purpose in Swift?
 
-#### Property injection
+### Property injection
 
 One option is using property injection by changing some points. 
 
@@ -536,7 +534,7 @@ By doing this, we can test `LoginViewModel` without calling actual API calls.
 
 ※ Of course, this change affects all tests, so if we need another behavior, we need to create a new mock class and replace it with the old one. It's likely that we have to setup and clean up the mocks in every tests in the long run. Also, we can not predict what happens in parallel tests(flaky tests).
 
-### Global Mutable Shared State
+## Global Mutable Shared State
 
 Another way is to make `shared` mutable.
 
@@ -572,7 +570,7 @@ class LoginViewModel {
 }
 ```
 
-### Singleton(Global Mutable Shared State)'s (possible) problems
+## Singleton(Global Mutable Shared State)'s (possible) problems
 
 Singleton(Global Mutable Shared State) is convenient, but some problems could happen:
 
@@ -585,11 +583,11 @@ It's not said that we must not use Singleton(Global Mutable Shared State) at all
 - It could cause threading issues since it can be changed in multiple threads(= data races) if it's not thread-safe. It might cause unpredictable behavior, and in the worst case, it could cause data corruption, app crash, ...
 
 
-### S(s)ingleton(Global Mutable Shared State) itself is not bad
+## S(s)ingleton(Global Mutable Shared State) itself is not bad
 
 S(s)ingleton(Global Mutable Shared State) makes sense if we need to enforce a single instance. However, the problem happens when we try to use it directly all over the place. As said the above, there could be many problems. If we want to use a single instance, the Composition Root should know if an instance is a singleton ot not then it should be injected into other components(modules).By this, we can facilitate threading, state management, and it also makes our code more testable.
 
-### Depending on one shared concrete type tends to affect unrelated components
+## Depending on one shared concrete type tends to affect unrelated components
 
 Let's define another class which uses `ServerAPIClient`.
 
@@ -618,12 +616,12 @@ So, what's the problem?
 Imagine, we have `ServerAPIClient` Login, Items, Friends and more modules. All the modules share `ServerAPIClient` class, but Login does't care about Items. Items does't care about Friends...
 Every time we need to add a new method in `ServerAPIClient`, we need to recompile all the other modules because they depend on this concrete type. They have source code dependency on this `ServerAPIClient`. If we want to reuse Login modules in a different application(a different context), we can't bring it without `ServerAPIClient`. Even if `ServerAPIClient` is in a shared modules, it's the same since other modules need to import it.
 
-### Avoid breaking modules
+## Avoid breaking modules
 
 Global shared state is very convenient. It's easy to create and use.
 But, if we need to care about modular design(reusability), we should solve this.
 
-#### extension
+### extension
 
 A simple way is using extensions.
 
@@ -671,7 +669,7 @@ Now, we have a generic client in the middle and specialize the client for each m
 
 We could break the dependencies without breaking the implementation. It's safer and more flexible, but we still share `ServerAPIClient` between all other modules. If we add a new method in it, we need to recompile them.
 
-#### Dependency Inversion
+### Dependency Inversion
 
 If we need to be more flexible without breaking the clients, we can invert dependencies which mean instead of the modules depending on a concrete `ServerAPIClient`, we make it depend on the modules.
 
@@ -749,7 +747,7 @@ let viewModel = LoginViewModel(loginAPI: MockServerAPIClient().login)
 ※ We use `ServerAPIClient` extensions as adapters since it's very simple. And this time we use closures for abstraction since they are the only one method in each module.
 
 
-### Component Adapter Pattern
+## Component Adapter Pattern
 
 To be more modular, we can use Adapter pattern.
 
@@ -763,7 +761,7 @@ Adapter can live in Composition Root. That's why each components doesn't need to
 
 ⚠️ Adapter pattern can complicate the design. So avoid them if not necessary. Keep it simple puts before it.
 
-## Don't skip stages
+# Don't skip stages
 
 The bigger the codebase it is, the more complex requirements are. And we can get more benefits from modular design.
 It doesn't come easily and we need to be very disciplined.
@@ -777,11 +775,11 @@ The point is that we need to know where to go to the next step when the problem 
 
 
 
-## More consideration about DI
+# More consideration about DI
 
 Some of them are not related to DI directly. But considering them could lead to a good DI strategy.
 
-### Injection Constructor should be simple (don't add behavior)
+## Injection Constructor should be simple (don't add behavior)
 
 More to say, an initializer which does DI should do no more than receiving the dependencies.
 
@@ -791,7 +789,7 @@ There are some reasons:
 - If we have circular dependencies and invoke one of them before initialized, it might also cause crash.
 - The constructor's responsibility is demand and receive the dependencies. According to the Single Responsibility Principle, it should not try to do some other things.
 
-### Constructor Over-injection is code smell
+## Constructor Over-injection is code smell
 
 Sometimes, we feel that a constructor has too many dependencies. We might try to create a encapsulated model(so called Facade), but it's not the solution.
 
@@ -799,11 +797,11 @@ We need to think about:
 - If it contains cross-cutting concerns(e.g. logging, error handling, etc.), it's not a good idea. Instead, we can use Decorator or Domain Event, etc.
 - The class could have too many responsibilities, so we need to think about splitting it into smaller classes according to the Single Responsibility Principle.
 
-### Create a good abstraction
+## Create a good abstraction
 
 By hiding concrete implementations from an interface, it is open for extension and closed for modification (Open/Closed principle). If not, we might change it when applying other implementation.
 
-#### Interface Segregation Principle
+### Interface Segregation Principle
 
 Clients should not depend on methods they do not use. by this, we can keep clear interfaces, single responsibility, etc. If it's violated, there could be some problems:
 
@@ -814,7 +812,7 @@ Clients should not depend on methods they do not use. by this, we can keep clear
 
 The bigger out team becomes, the more this violation has effect on us.
 
-#### Interfaces have several roles
+### Interfaces have several roles
 
 Interfaces can be used in several situations:
 
@@ -823,7 +821,7 @@ Interfaces can be used in several situations:
 
 In Swift, many developers think that interface protocol, but we can use other things like closure, struct, etc... as interfaces.
 
-#### Interfaces should be single-purpose and small
+### Interfaces should be single-purpose and small
 
 Following to Interface Segregation Principle, interfaces could become small since they should be single-purpose. If not, it could violate other SOLID principles like Single Responsibility Principle.
 
@@ -831,11 +829,11 @@ Exposing too many operations are often not very good abstractions. They end up b
 
 For example, assuming that there is a protocol to communicate with an interface to access web services via HTTP. If a client wants only get method, but another one wants get and post methods, they should be separate interfaces. If they share the same one and one client comes to need delete method, we need to change both clients.
 
-#### How can we collaborate these different interfaces in different module?
+### How can we collaborate these different interfaces in different module?
 
 TO decouple a module from other one, such a adapting thing should be done in the Composition Root. If a behavior needs some more business logic after that, we might delegate it to another feature. If we don't need any other business logic, we just call the infrastructure implementations. For example, we want to delete cache when the specific time is passed by. The judgement if it's over or not is business logic, then deleting the actual cache from the system is the infrastructure implementation. 
 
-#### Similar is not same
+### Similar is not same
 
 When we find the similar methods(e.g. get, delete, etc) in two interfaces, we are tempered to create one shared interface. But, sometimes it's not right since the usage of them are different by their clients, and the shared interface could not represent what each client needs. 
 
@@ -846,11 +844,11 @@ Each feature should define its own protocols in its own module. Then, the module
 ※ It won't say that we must have separate concrete implementations for each interface. We can use the same implementations across several interfaces(e.g. store data in CoreData, accessing a server, etc)
 
 
-#### short code　≠ clean dependencies
+### short code　≠ clean dependencies
 
 As said in the above, just being small does not make sense. The key is "single-purpose". For example, not every protocol necessarily has only one method.
 
-### Restrict from creating and using dependencies in the same class
+## Restrict from creating and using dependencies in the same class
 
 When composing small components, probably we try to create and use them in a aggregation class. The main problem is that, as long as it creates its collaborators, it needs to provide their dependencies. And many times it just passes the dependencies to the collaborators. It' an anti-pattern called Middle man.
 
@@ -865,7 +863,7 @@ final class ListViewController: UIViewController {
 
 ```
 
-#### Middle man anti-pattern
+### Middle man anti-pattern
 
 If an object method is simply forwarding a method to another object without any extra logic, it could be an anti-pattern called middle man.
 It's also applied to DI. If a parent class creates a child class which has its own dependencies not used in the parent, the parent has to hold unnecessary dependencies and just passes them to the child. Then:
@@ -874,53 +872,53 @@ It's also applied to DI. If a parent class creates a child class which has its o
 - If the child changes its dependencies, the parent will have to change too
 
 
-### Transition via delegate or closure
+## Transition via delegate or closure
 
 Separating the instantiation of our views from the presentation/navigation will help us build more maintainable, extendable, replaceable, reusable, and testable components. The idea is to decouple ViewControllers when possible. Especially when they belong to different features.
 
 A class could handle all the transitions initially, but it can inflate the number of responsibilities the class has. So, we extract and encapsulate the view coordination responsibility in a new object responsible solely for that. For example, as we add more features and transitions to our app, we could breakdown the navigation into dedicated Flows or Coordinators in the Composition Root.
 
-#### Factory does not reduce coupling
+### Factory does not reduce coupling
 
 In this lecture, we demonstrated how using a concrete factory directly in the client code does not provide any value regarding Dependency Injection, modularity, or decoupling. In fact, even Abstract Factories can increase the number of redundant dependencies and complicate the design.
 
 Factories should be used to remove duplication / encapsulate the logic of creating complex instances, not to reduce coupling. To reduce coupling, Factories (such as Composers) should be used only in the Composition Root.
 
-### Add a new method to an existing protocol should be considered a red flag
+## Add a new method to an existing protocol should be considered a red flag
 
 In most cases, adding more methods to a protocol should be considered a red flag.
 
 In fact, adding many methods to a protocol is a common behavior we see in many iOS code bases.
 The problem is that is leads to bloated and leaky abstractions.
 
-#### Break all the components conforming to the protocol,
+### Break all the components conforming to the protocol,
 
 They would have to implement this extra mandatory method. 
 This is especially cumbersome on large code bases, as it’s typical (and desired) to have many components conforming to the same protocol.
 
-#### Implement all methods
+### Implement all methods
 
 Not all components will have a clear reason or the means to implement all methods.
 When this happens, the number of changes (and duplication!) will cascade as we add more dependencies and copy/paste implementations into many components. 
 To avoid the cascading effect, developers may decide to add faulty implementations or `fatalError(“not implemented”)`, a clear violation of the Liskov Substitution Principle.
 
-#### Lose its Single Responsibility
+### Lose its Single Responsibility
 
 Adding new behavior means adding new responsibilities to it. In many cases, it violates Single Responsibility Principle.
 
-#### Expose methods that not all clients need
+### Expose methods that not all clients need
 
 It's a clear violation of the Interface Segregation Principle.
 
-#### It passes a message to the team that “it’s ok to add many methods to this protocol”
+### It passes a message to the team that “it’s ok to add many methods to this protocol”
 
 Potentially giving the green light for dumping any feed image related method to it and amplifying the problems mentioned above.
 
-#### How to solve?
+### How to solve?
 
 Instead of adding new methods in existing protocols, creating a new protocol or intercepting them via Decorator(described later) has some merits.
 
-### Interception
+## Interception
 
 The concept of Interception is simple: we want to be able to intercept the call between a consumer and a service, and to execute some code before or after the service is invoked. And we want to do so in such a way that neither the consumer nor the service has to change.
 
@@ -928,7 +926,7 @@ Interception is the ability to intercept calls between two collaborating compone
 
 ld not be possible without a polymorphic interface
 
-#### The Decorator pattern
+### The Decorator pattern
 
 The Decorator pattern attaches additional responsibilities to an object dynamically. 
 
@@ -1027,14 +1025,14 @@ let itemViewModel = ItemViewModel(client: DispatchMainQueueDecorator(base: APICl
 It might not be the best solution. This could also need extra logics. The thing is that by using the Decorator pattern, we can avoid duplication of code all over the place and change behavior without affecting existing components. It depends on the situation(e.g. team's understanding and agreement)
 
 
-#### Command-Query Separation(CQS)
+### Command-Query Separation(CQS)
 
 CQS promotes the idea that each method should either
 
 - Return a result, but not mutate the observable state of the system
 - Mutate the state, but not produce any value
 
-#### Cache(Example)
+### Cache(Example)
 
 For example, imagine we want to cache items after fetching them from the server.
 
@@ -1085,7 +1083,7 @@ final class CachableItemsClient: ItemsClient {
 }
 ```
 
-#### Cross-cutting concerns
+### Cross-cutting concerns
 
 Like the above, we can **intercept** the original behavior. Logging is one of cross-cutting concerns. 
 
@@ -1095,14 +1093,13 @@ e.g. Logging, Security, Auditing, Error handling, etc.
 
 So, Cross-Cutting Concerns should be applied at the right granular level in the application.
 
-#### The Decorator pattern and code duplication(DRY violation)
+### The Decorator pattern and code duplication(DRY violation)
 
 If we need to observe a cross-cutting concern in several different clients at once, the decorator pattern would cause code duplication since it's often a one-to-one relationship. It can cause major maintainability issues as the system gets bigger.
 
 For example, if we want to add an other implementation of `Repository`(e.g. `ItemRepository`), we need to add a new `LoggingRepository` to the `ItemRepository`, too.
 
-
-#### Event driven design
+### Event driven design
 
 Instead, we can use an event-driven design.
 
@@ -1114,19 +1111,17 @@ For example,
 
 We can compose subscriptions in the Composition Root. It's important since it becomes a single place to change/remove code when necessary and get maintainability.
 
-
-#### AOP(Aspect Oriented Programming)
+### AOP(Aspect Oriented Programming)
 
 The primary aim of AOP is to keep our cross-cutting concerns DRY(Don't repeat yourself). There’s a strong relationship between the OCP(the Open/Closed Principle) and the DRY principle. They both strive for the same objective, which is to reduce repetition and prevent sweeping changes.
 
-
-#### Side-effect free core business rules
+### Side-effect free core business rules
 
 Keeping our core domain free from side-effects makes it extremely easy to build, maintain and test.
 
 Side-effects (e.g. I/O, database writes, UI updates, etc) do need to happen, but not at the core of the application. The side-effects can happen at the boundary of the system, in the Infrastructure implementations.
 
-#### Functional core, Imperative share
+### Functional core, Imperative share
 
 This separation is called Functional Core, Imperative Shell.
 
@@ -1134,9 +1129,9 @@ This separation is called Functional Core, Imperative Shell.
 
 Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input).
 
-### Unified vs Segregated models
+## Unified vs Segregated models
 
-#### The problem of a unified model
+### The problem of a unified model
 
 A model should be a simple and consistent representation of a domain concept. When we share models across boundaries, it gets easy to start adding methods and properties that one of the modules need, but the others don't. When this happens, our models grow in size and start to lose consistency. For example, in a module, we need some special properties for API, but not for UI, Cache etc. In multiple modules environment, all dependencies on one model leads to tremendous change all over the place. It disturbs parallel development(many conflicts).
 
@@ -1146,17 +1141,17 @@ As developers, we often strive to find perfect abstractions, so multiple represe
 
 ※ Of course, a unified model is not always bad. For example, we believe  model won't change or the domain model and all seg always change together.
 
-#### Creating Segregated models (DTO)
+### Creating Segregated models (DTO)
 
 Thus, instead of always passing models across boundaries, consider using a data transfer representation (also known as data transfer objects or DTO). Creating separate model representations helps us keep the code concise and easy to develop, use and maintain. At first, the separate representations may look similar, but over time they often change at a distinct pace and for different reasons. 
 
 When the models start becoming different, it's important to be ready to separate the concepts in a way which will prevent the system from being in inconsistent states. In addition, team members should have a common/shared view of the context for each model, and work towards maintaining its consistency. The context breakdown will vary from project to project, depending on the domain and subdomain models, frameworks in use, parts of the application that requires separation, and even cross-team structure.
 
-#### Be careful not to cross boundaries when they are in the same project
+### Be careful not to cross boundaries when they are in the same project
 
 When we keep them within the same module, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick conveniences (but costly and debt in the end). To prevent such unwanted dependency accidents, separate modules. Also, if modules reused in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but when done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
 
-#### Be careful not to diverge related concepts too much at the same time
+### Be careful not to diverge related concepts too much at the same time
 
 However, we must also be careful with the other extreme: a design that diverges related concepts too much. Otherwise, the system grows in complexity, the cost of integration increases, communication between teams becomes harder, and we won’t be able to clearly see the correlations within the boundaries. 
 
@@ -1173,11 +1168,11 @@ On the other hand, by keeping modules within the same project, we must be discip
 
 ※ We don't always need one DTO per module. It's a choice. If we believe both modules should always change together, we don't need a separate DTO. And if they change together, we should probably combine them into a single module. Also, if the model is just a data(no logic), we could not need its DTO.
 
-#### Using a unified model controlled by an external team
+### Using a unified model controlled by an external team
 
 This approach (e.g. using backend API models directly) throughout the application has merits as it can speed up development at early stages of simple API-consumer app projects. If the app we’re building does nothing more than consuming and displaying data from some external APIs, such an approach might pay off while its requirements don’t change. If there is possibility to change it, it's better to have more options to be able to identify when to switch strategies and refactor the design towards independence/freedom from external actors.
 
-### Domain model and DI
+## Domain model and DI
 
 The domain model could do the operation and enforce business rules(e.g. keeping items cache for a day).
 
@@ -1188,7 +1183,7 @@ Domain model often prefers method Injection to constructor injection does not ma
 - It's used in many ways and all of its dependencies could not be always necessary (e.g. it could be used in some methods). Especially it complicates test setup
 - It is not always created in the Composition Root and difficult to manage its dependencies, also via method injection, we can call proper method in the proper components (which have proper dependencies)
 
-## From dependency injection to dependency rejection
+# From dependency injection to dependency rejection
 
 In object-oriented program, DI is a useful tool since we can composite any functions without breaking its clients and also it expresses explicit dependency graph(mainly with constructor dependency injection).
 
@@ -1322,7 +1317,7 @@ let cachableItemsClient = httpClient
 
 We can not say that which one is better. It depends on team's situation, preference, etc...
 
-## Separation pros/cons
+# Separation pros/cons
 
 Separation is basically good, but we need to consider how much we do it with considering the following:
 
@@ -1338,7 +1333,7 @@ A very large value for this metric should be considered alarming and harmful in 
 
 The key idea to understand is that these libraries or frameworks can become a liability instead of the asset we initially thought they were. To protect ourselves, the team and the company from the downsides of such dependencies, we can decouple them from our systems by using dependency inversion. To do so, create an abstraction between third-party libraries and our application.
 
-## Resources
+# Resources
 
 - [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
 - [dependency rejection](https://blog.ploeh.dk/2017/02/02/dependency-rejection/)
