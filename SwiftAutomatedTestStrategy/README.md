@@ -20,8 +20,9 @@
     - [Persistent storage.](#persistent-storage)
   - [(R)epeatable](#repeatable)
   - [(E)xaminable:](#examinable)
-  - [Making dependencies explicit](#making-dependencies-explicit)
-- [(TBD)Make tests descriptive](#tbdmake-tests-descriptive)
+- [Making dependencies explicit](#making-dependencies-explicit)
+- [Dealing with side-effects and stateful components in tests](#dealing-with-side-effects-and-stateful-components-in-tests)
+- [Make tests descriptive](#make-tests-descriptive)
 - [Triangulating a specific data point to decide which values to test](#triangulating-a-specific-data-point-to-decide-which-values-to-test)
 - [Test tips](#test-tips)
   - [UI layout changes not applied immediately](#ui-layout-changes-not-applied-immediately)
@@ -343,7 +344,7 @@ For example:
 
  When logging events to a server, there is no way for the mobile API to ask for the events we sent.
 
-## Making dependencies explicit
+# Making dependencies explicit
 
 Ideally, we want to avoid implicit details in tests. Tests should be short, but every important detail to a test should be clearly defined within the test method. By doing so, when there’s a test failure, we can easily understand the test set up by looking at its short scope (without having to debug or go through many levels of abstractions).
 
@@ -386,8 +387,57 @@ func test() {
 }
 ```
 
-# (TBD)Make tests descriptive
+# Dealing with side-effects and stateful components in tests
 
+When testing with the real environment(e.g. File system, Core Data), we must reset the state of it before(`setUp`) and after(`tearDown`) a test. We sometimes forget to reset it before tests. If we do not reset, there is the possibility of problematic edge cases such as crashes and breakpoints that can prevent the test from completing and the tearDown from being invoked.
+
+# Make tests descriptive
+
+Even though calling the same method int the long run, it's better to create a tiny DSL to make tests descriptive.
+
+Assuming that related to the above, we have a method which delete a file and call it on `setUp` and `tearDown`.
+
+```swift
+class SomeTest: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        deleteFile(at: testFileURL)
+    }
+
+    override func tearDown() {
+        super.tearDown()
+        deleteFile(at: testFileURL)
+    }
+
+    private func deleteFile(at url: URL) { /*  */ }
+}
+```
+
+Even though both use `deleteFile`, we can send our intension to other developers by creating DSLs.
+
+```swift
+class SomeTest: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        setupEmptyStore(at: testFileURL)
+    }
+
+    override func tearDown() {
+        super.tearDown()
+        clearSideEffects(at: testFileURL)
+    }
+
+    private func setupEmptyStore(at url: URL) {
+        deleteFile(at: testFileURL)
+    }
+
+    private func clearSideEffects(at url: URL) {
+        deleteFile(at: testFileURL)
+    }
+
+    private func deleteFile(at url: URL) { /*  */ }
+}
+```
 
 # Triangulating a specific data point to decide which values to test
 
