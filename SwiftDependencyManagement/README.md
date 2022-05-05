@@ -90,6 +90,7 @@
     - [Domain model and DI](#domain-model-and-di)
   - [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
   - [Separation pros/cons](#separation-proscons)
+- [External dependencies count & Introducing 3rd-party libraries](#external-dependencies-count--introducing-3rd-party-libraries)
   - [Resources](#resources)
 
 ## Some aspects of good architecture
@@ -931,7 +932,7 @@ ld not be possible without a polymorphic interface
 
 The Decorator pattern attaches additional responsibilities to an object dynamically. 
 
-The Decorator implementation should share the same interface as the decorated. This means that they should have the same method signature.
+The Decorator implementation should share the same interface as the decorated object. This means that they should have the same method signature.
 
 That's polymorphism: a single interface/abstraction with many implementations.
 
@@ -941,13 +942,9 @@ For example, we define a protocol and its implementation.
 protocol Repository {
     func get(with key: Key) throws -> Data
 }
-
-final class UserRepository: Repository {
-    func get(with key: Key) throws -> Data { /* ... */ }
-}
 ```
 
-Then, we want to check urls which passed by callers, so we want to add logs for every request. For it, we can decorate `UserRepository`.
+Then, we want to check urls which passed by callers, so we want to add logs for every request. For it, we can decorate `Repository`.
 
 ```swift
 final class LoggingRepository: Repository {
@@ -955,9 +952,9 @@ final class LoggingRepository: Repository {
     init(repository: Repository) {
         self.repository = repository
     }
-    func get(with key: Key) async throws -> Data {
+    func get(with key: Key) throws -> Data {
         print("Requesting: \(key)")
-        let data = try await repository.get(with: key)
+        let data = try repository.get(with: key)
         print("Response: \(data)")
         return data
     }
@@ -1332,6 +1329,14 @@ Separation is basically good, but we need to consider how much we do it with con
 1) Breaking down into more models/protocols may make our code more complex and harder to understand.
 
 2) Combining everything in one model/protocol may make our code harder to extend or reuse.
+
+# External dependencies count & Introducing 3rd-party libraries
+
+External dependencies count indicates the exposure to risk in the codebase and product road map to external actors.
+
+A very large value for this metric should be considered alarming and harmful in some cases. External dependencies might enforce suboptimal design choices, cause unrecoverable and hard to trace crashes in runtime, security vulnerabilities, licensing and legal complications and the evolution of the dependency might not match the pace of our project which can negatively influence the product road map. 
+
+The key idea to understand is that these libraries or frameworks can become a liability instead of the asset we initially thought they were. To protect ourselves, the team and the company from the downsides of such dependencies, we can decouple them from our systems by using dependency inversion. To do so, create an abstraction between third-party libraries and our application.
 
 ## Resources
 
