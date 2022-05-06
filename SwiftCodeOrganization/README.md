@@ -26,6 +26,7 @@
   - [Creating Segregated models (DTO)](#creating-segregated-models-dto)
   - [Be careful not to cross boundaries when they are in the same project](#be-careful-not-to-cross-boundaries-when-they-are-in-the-same-project)
   - [Be careful not to diverge related concepts too much at the same time](#be-careful-not-to-diverge-related-concepts-too-much-at-the-same-time)
+  - [Just mirroring framework models is not enough. Create good abstractions according with our app needs](#just-mirroring-framework-models-is-not-enough-create-good-abstractions-according-with-our-app-needs)
   - [Using a unified model controlled by an external team](#using-a-unified-model-controlled-by-an-external-team)
   - [Trade-off of cross-boundary Codable requirements](#trade-off-of-cross-boundary-codable-requirements)
 - [The Decorator pattern](#the-decorator-pattern)
@@ -358,6 +359,10 @@ We prevent harmful model diversion by keeping the translation layer (the mapping
 On the other hand, by keeping modules within the same project, we must be disciplined with our actions as it’s much easier to cross boundaries accidentally or to trade modularity for quick (but costly) conveniences (debt). If we want to prevent such unwanted dependency accidents, separate modules in different projects. Also, if module reuse in other projects is ever a requirement, moving such modules to isolated projects will be necessary. The cost of maintenance and extension might increase with separate projects, but don’t be discouraged from doing so. When done right, the collaboration/integration friction is minimal, and the modularity and reuse benefits are high. 
 
 ※ We don't always need one DTO per module. It's a choice. If we believe both modules should always change together, we don't need a separate DTO. And if they change together, we should probably combine them into a single module. Also, if the model is just a data(no logic), we could not need its DTO.
+
+## Just mirroring framework models is not enough. Create good abstractions according with our app needs
+
+In most cases, models which a framework provides contain its specific details. For example, Apple framework provides many optional properties since they must handle every app cases and be flexible. In such cases, we need to separate our models from framework's complexity. By dosing so, we can model our app needs with plain Swift types and clean abstractions. Since we don't refer to any framework specific details, we can replace the framework with any other frameworks easily.
 
 ## Using a unified model controlled by an external team
 
