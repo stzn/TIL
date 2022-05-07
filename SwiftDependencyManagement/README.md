@@ -43,25 +43,24 @@
   - [Singleton(Global Mutable Shared State)'s (possible) problems](#singletonglobal-mutable-shared-states-possible-problems)
   - [S(s)ingleton(Global Mutable Shared State) itself is not bad](#ssingletonglobal-mutable-shared-state-itself-is-not-bad)
   - [Depending on one shared concrete type tends to affect unrelated components](#depending-on-one-shared-concrete-type-tends-to-affect-unrelated-components)
+  - [Tight coupling with concrete dependencies leads to problems](#tight-coupling-with-concrete-dependencies-leads-to-problems)
+    - [Lose productivity](#lose-productivity)
+    - [Burnout](#burnout)
+    - [Many bugs & regressions](#many-bugs--regressions)
   - [Avoid breaking modules](#avoid-breaking-modules)
     - [extension](#extension)
     - [Dependency Inversion](#dependency-inversion-1)
   - [Component Adapter Pattern](#component-adapter-pattern)
+  - [Solving dependency cycle](#solving-dependency-cycle)
 - [Don't skip stages](#dont-skip-stages)
 - [More consideration about DI](#more-consideration-about-di)
   - [Injection Constructor should be simple (don't add behavior)](#injection-constructor-should-be-simple-dont-add-behavior)
   - [Constructor Over-injection is code smell](#constructor-over-injection-is-code-smell)
-  - [Create a good abstraction](#create-a-good-abstraction)
-    - [Interface Segregation Principle](#interface-segregation-principle)
-    - [Interfaces have several roles](#interfaces-have-several-roles)
-    - [Interfaces should be single-purpose and small](#interfaces-should-be-single-purpose-and-small)
-    - [How can we collaborate these different interfaces in different module?](#how-can-we-collaborate-these-different-interfaces-in-different-module)
-    - [Similar is not same](#similar-is-not-same)
-    - [short code　≠ clean dependencies](#short-code-clean-dependencies)
+  - [How can we collaborate these different interfaces in different module?](#how-can-we-collaborate-these-different-interfaces-in-different-module)
   - [Restrict from creating and using dependencies in the same class](#restrict-from-creating-and-using-dependencies-in-the-same-class)
-    - [Middle man anti-pattern](#middle-man-anti-pattern)
+  - [Middle man anti-pattern](#middle-man-anti-pattern)
   - [Transition via delegate or closure](#transition-via-delegate-or-closure)
-    - [Factory does not reduce coupling](#factory-does-not-reduce-coupling)
+  - [Factory does not reduce coupling](#factory-does-not-reduce-coupling)
   - [Add a new method to an existing protocol should be considered a red flag](#add-a-new-method-to-an-existing-protocol-should-be-considered-a-red-flag)
     - [Break all the components conforming to the protocol,](#break-all-the-components-conforming-to-the-protocol)
     - [Implement all methods](#implement-all-methods)
@@ -616,6 +615,23 @@ So, what's the problem?
 Imagine, we have `ServerAPIClient` Login, Items, Friends and more modules. All the modules share `ServerAPIClient` class, but Login does't care about Items. Items does't care about Friends...
 Every time we need to add a new method in `ServerAPIClient`, we need to recompile all the other modules because they depend on this concrete type. They have source code dependency on this `ServerAPIClient`. If we want to reuse Login modules in a different application(a different context), we can't bring it without `ServerAPIClient`. Even if `ServerAPIClient` is in a shared modules, it's the same since other modules need to import it.
 
+## Tight coupling with concrete dependencies leads to problems
+
+Tight coupling with(directly using) concrete frameworks(infrastructure details) causes problems like:
+
+### Lose productivity
+
+We could need to take bunch of time to understand. Even worse, we can't decide on actions for lack of information or fear of negative impacts of the decision. It's called Analysis paralysis.
+
+
+### Burnout
+
+We could also need to take bunch of time to implement. This would lead to burnout since working in big batches and not often merging leads to terrible merge conflicts, inability to estimate work, missed deadlines, missed development & product bottlenecks, and eventually low morale and high turnover.
+
+### Many bugs & regressions
+
+We could also need to take bunch of time to set up tests. This would lead to inability to write good tests and faulty software.
+
 ## Avoid breaking modules
 
 Global shared state is very convenient. It's easy to create and use.
@@ -746,7 +762,6 @@ let viewModel = LoginViewModel(loginAPI: MockServerAPIClient().login)
 
 ※ We use `ServerAPIClient` extensions as adapters since it's very simple. And this time we use closures for abstraction since they are the only one method in each module.
 
-
 ## Component Adapter Pattern
 
 To be more modular, we can use Adapter pattern.
@@ -755,11 +770,15 @@ Adapter pattern enables components with incompatible interfaces to work together
 
 <img src="./images/modular_adapter.png" alt= "modular adapter" width="100%">
 
-
 Adapter can live in Composition Root. That's why each components doesn't need to know each other.
 
-
 ⚠️ Adapter pattern can complicate the design. So avoid them if not necessary. Keep it simple puts before it.
+
+## Solving dependency cycle
+
+The more modular our design becomes, The more there is a possibility to make dependency cyclic, which an implementation requires another dependency whose implementation requires the first abstraction. That's chicken and egg problem.
+
+A common way to solve this is to use property injection. instead of constructor injection. But we need to be careful not to leak such an implementation detail. So, we should handle it in the Composition Root. By doing so, we can move all details to the Composition.
 
 # Don't skip stages
 
@@ -772,7 +791,6 @@ We should not start with complex design. When needed, just understand how we can
 ...and so on.
 
 The point is that we need to know where to go to the next step when the problem occurs.
-
 
 
 # More consideration about DI
@@ -797,56 +815,9 @@ We need to think about:
 - If it contains cross-cutting concerns(e.g. logging, error handling, etc.), it's not a good idea. Instead, we can use Decorator or Domain Event, etc.
 - The class could have too many responsibilities, so we need to think about splitting it into smaller classes according to the Single Responsibility Principle.
 
-## Create a good abstraction
+## How can we collaborate these different interfaces in different module?
 
-By hiding concrete implementations from an interface, it is open for extension and closed for modification (Open/Closed principle). If not, we might change it when applying other implementation.
-
-### Interface Segregation Principle
-
-Clients should not depend on methods they do not use. by this, we can keep clear interfaces, single responsibility, etc. If it's violated, there could be some problems:
-
-- have to recompile and redeploy modules, which will increase build and test times
-- break the foundation of independent development, meaning developers will have to add/fix code to components already conforming to the broken interface
-- then, internal merge and versioning conflicts become more likely
-- also, introducing potential bugs and regressions since unrelated codes could be changed at the same time
-
-The bigger out team becomes, the more this violation has effect on us.
-
-### Interfaces have several roles
-
-Interfaces can be used in several situations:
-
-- As boundaries between business logics and infrastructure details(like HTTP, File system, etc). Protocol adapts the communication between them. It doesn't contain any core business logics. 
-- AS contracts between business logics(e.g. other feature modules, client and server).
-
-In Swift, many developers think that interface protocol, but we can use other things like closure, struct, etc... as interfaces.
-
-### Interfaces should be single-purpose and small
-
-Following to Interface Segregation Principle, interfaces could become small since they should be single-purpose. If not, it could violate other SOLID principles like Single Responsibility Principle.
-
-Exposing too many operations are often not very good abstractions. They end up becoming bottlenecks and increasing the coupling in the system (we end up depending on modules which not needed)
-
-For example, assuming that there is a protocol to communicate with an interface to access web services via HTTP. If a client wants only get method, but another one wants get and post methods, they should be separate interfaces. If they share the same one and one client comes to need delete method, we need to change both clients.
-
-### How can we collaborate these different interfaces in different module?
-
-TO decouple a module from other one, such a adapting thing should be done in the Composition Root. If a behavior needs some more business logic after that, we might delegate it to another feature. If we don't need any other business logic, we just call the infrastructure implementations. For example, we want to delete cache when the specific time is passed by. The judgement if it's over or not is business logic, then deleting the actual cache from the system is the infrastructure implementation. 
-
-### Similar is not same
-
-When we find the similar methods(e.g. get, delete, etc) in two interfaces, we are tempered to create one shared interface. But, sometimes it's not right since the usage of them are different by their clients, and the shared interface could not represent what each client needs. 
-
-In addition, it gets harder in case of multiple modular design. If we create "Shared" module and put the shared interfaces in it, other features which need the interfaces always have to import the shared module into their modules. And this will increase maintenance cost (e.g., every time the shared module changes, we need to recompile and redeploy all other modules). 
-
-Each feature should define its own protocols in its own module. Then, the modules can become simpler to maintain since the features are fully decoupled, and the code is simpler since the protocols define the precise methods they need.
-
-※ It won't say that we must have separate concrete implementations for each interface. We can use the same implementations across several interfaces(e.g. store data in CoreData, accessing a server, etc)
-
-
-### short code　≠ clean dependencies
-
-As said in the above, just being small does not make sense. The key is "single-purpose". For example, not every protocol necessarily has only one method.
+To decouple(adapt) a module from other one, such a adapting thing should be done in the Composition Root. If a behavior needs some more business logic after that, we can delegate it to another feature. If we don't need any other business logic, we just call the infrastructure implementations. For example, we want to delete cache when the specific time is passed by. The judgement if it's over or not is business logic, then deleting the actual cache from the system is the infrastructure implementation. 
 
 ## Restrict from creating and using dependencies in the same class
 
@@ -863,7 +834,7 @@ final class ListViewController: UIViewController {
 
 ```
 
-### Middle man anti-pattern
+## Middle man anti-pattern
 
 If an object method is simply forwarding a method to another object without any extra logic, it could be an anti-pattern called middle man.
 It's also applied to DI. If a parent class creates a child class which has its own dependencies not used in the parent, the parent has to hold unnecessary dependencies and just passes them to the child. Then:
@@ -878,7 +849,7 @@ Separating the instantiation of our views from the presentation/navigation will 
 
 A class could handle all the transitions initially, but it can inflate the number of responsibilities the class has. So, we extract and encapsulate the view coordination responsibility in a new object responsible solely for that. For example, as we add more features and transitions to our app, we could breakdown the navigation into dedicated Flows or Coordinators in the Composition Root.
 
-### Factory does not reduce coupling
+## Factory does not reduce coupling
 
 In this lecture, we demonstrated how using a concrete factory directly in the client code does not provide any value regarding Dependency Injection, modularity, or decoupling. In fact, even Abstract Factories can increase the number of redundant dependencies and complicate the design.
 
