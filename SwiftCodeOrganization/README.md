@@ -46,6 +46,10 @@
   - [Build time improvement](#build-time-improvement)
   - [Test time improvement](#test-time-improvement)
   - [Notice: we should run all tests on all supported platforms](#notice-we-should-run-all-tests-on-all-supported-platforms)
+  - [Outside-in, Inside-out approach](#outside-in-inside-out-approach)
+    - [Outside-in](#outside-in)
+  - [Inside-out](#inside-out)
+  - [Which one is better?](#which-one-is-better)
 - [Codebase analysis(Health check)](#codebase-analysishealth-check)
   - [The number of files changed per commit](#the-number-of-files-changed-per-commit)
   - [Lines of code per file](#lines-of-code-per-file)
@@ -728,6 +732,29 @@ The platform-agnostic framework can run on macOS target. This means we can run t
 It’s common for components to behave differently in distinct platforms. To guarantee the consistency of the behavior of the system on all platforms it’s quite important to run all tests on all supported platforms.
 
 There's a cost, but we can decrease it by decoupling modules and breaking down them into separate projects.
+
+## Outside-in, Inside-out approach
+
+When developing a new feature, we can choose two approaches.
+
+- Outside-in
+- Inside-out
+
+### Outside-in
+
+We start developing the UI first, and then the business logics. We can deliver apps and prototypes, then get feedback from stakeholders more rapidly.
+
+By defining the abstractions of application logics, we can decide the implementation details later.
+
+
+## Inside-out
+
+We start from core business logics and move to outer layers. Even when we haven't got UI layout yet, we can proceed our development. 
+By defining the abstractions of infrastructure, we can decide the implementation details later.
+
+## Which one is better?
+
+It depends on the situations. The point is that the lack of something won't disturb our development. But, if we have UI sketch, it could be better to start from Outside-in approach. Also, when we get it, it could be better to switch to Outside-in approach. This is because  we can interact with stakeholders more rapidly and smoothly to deliver our app.
 
 # Codebase analysis(Health check)
 
