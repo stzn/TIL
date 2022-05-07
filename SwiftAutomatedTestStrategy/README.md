@@ -3,9 +3,14 @@
 - [Programmer Test Principles](#programmer-test-principles)
 - [The Test Pyramid](#the-test-pyramid)
   - [1. Unit/Isolated tests](#1-unitisolated-tests)
+    - [Argument against Unit/Isolated tests](#argument-against-unitisolated-tests)
   - [2. Integration/System tests](#2-integrationsystem-tests)
   - [3. UI tests](#3-ui-tests)
-  - [Argument against Unit/Isolated tests](#argument-against-unitisolated-tests)
+- [Test Strategy](#test-strategy)
+- [Drawbacks of integration tests as a primary strategy](#drawbacks-of-integration-tests-as-a-primary-strategy)
+  - [A tendency for tight coupling and bad design decisions](#a-tendency-for-tight-coupling-and-bad-design-decisions)
+  - [Limited team collaboration](#limited-team-collaboration)
+  - [Testing can quickly become an unsustainable/costly liability for the team and the company](#testing-can-quickly-become-an-unsustainablecostly-liability-for-the-team-and-the-company)
 - [Some types of UI tests in iOS](#some-types-of-ui-tests-in-ios)
   - [XCUITest](#xcuitest)
   - [Acceptance Testing](#acceptance-testing)
@@ -24,6 +29,7 @@
 - [Dealing with side-effects and stateful components in tests](#dealing-with-side-effects-and-stateful-components-in-tests)
 - [Make tests expressive](#make-tests-expressive)
 - [Triangulating a specific data point to decide which values to test](#triangulating-a-specific-data-point-to-decide-which-values-to-test)
+- [Testing effectively with 3rd-party frameworks](#testing-effectively-with-3rd-party-frameworks)
 - [Test tips](#test-tips)
   - [UI layout changes not applied immediately](#ui-layout-changes-not-applied-immediately)
   - [RunLoop tricks](#runloop-tricks)
@@ -75,11 +81,23 @@ Programmer tests should:
 
 There are 3 kinds of test and it is represented by the pyramid:
 
+- Unit/Isolated tests
+- Integration/System tests
+- UI tests
+
 ## 1. Unit/Isolated tests
 
 They test individual components or functionalities to validate that they work as expected in isolated conditions.
 
-They are the foundation or primary testing strategy because they are swift, reliable, and cheap to write. 
+### Argument against Unit/Isolated tests
+
+In unit or isolated testing, we create test doubles to behave as we wish.
+
+Some developers argue against the isolated testing approach since test doubles are not the real implementations used in production, so they don’t give us enough confidence that our code actually does what it needs to do. Test doubles prove our code works with the given test double.
+
+It's valid, but it doesn’t mean we should not write isolated tests. A better solution is to write a few integration tests to test the implementations in integration. This way you get the benefits of isolated tests as the primary testing strategy and avoid the integration tests unsustainable drawbacks.
+
+※ In my view, we tend to write only unit tests when we notice the importance of automated tests. But it's not enough since implementing each functions individually requests us to connect them together somewhere. Only with unit tests, there is possibility for us to forget to do it. So, integration tests are important to find such kind of mistake.
 
 ## 2. Integration/System tests
 
@@ -104,15 +122,37 @@ Comparing with unit/isolated tests:
 
 They represent end-to-end tests we run through the user interface. 
 
-## Argument against Unit/Isolated tests
+# Test Strategy
 
-In unit or isolated testing, we create test doubles to behave as we wish.
+The testing pyramid instructs us to focus on Unit tests as the primary strategy since they are fast, reliable , cheaper to write than other tests(with mocking environment). As we step up on the pyramid, and more components are added in integration, the time and cost for each added test increase much. The more components we check in integration, the more expensive testing becomes.
 
-Some developers argue against the isolated testing approach since test doubles are not the real implementations used in production, so they don’t give us enough confidence that our code actually does what it needs to do. Test doubles prove our code works with the given test double.
+<img src="./images/test_dependency_strategy.png" alt= "test_dependency_strategy" width="100%">
+<br/>
+<br/>
 
-It's valid, but it doesn’t mean we should not write isolated tests. A better solution is to write a few integration tests to test the implementations in integration. This way you get the benefits of isolated tests as the primary testing strategy and avoid the integration tests unsustainable drawbacks.
+# Drawbacks of integration tests as a primary strategy
 
-※ In my view, we tend to write only unit tests when we notice the importance of automated tests. But it's not enough since implementing each functions individually requests us to connect them together somewhere. Only with unit tests, there is possibility for us to forget to do it. So, integration tests are important to find such kind of mistake.
+We need concrete frameworks(implementation details) for integration tests. If we try to use them as a primary strategy. It could cause some problems.
+
+## A tendency for tight coupling and bad design decisions
+
+Implementing business logic based on a concrete framework tend to make wrong design decisions up front. It often leads to the lack of our design flexibility due to high coupling. In addition, it would lose productivity. For example:
+
+- Analysis paralysis: can’t decide on actions for lack of information or fear of negative impacts of the decision.
+- Burnout: working in big batches and not often merging, leading to nightmarish merge conflicts, inability to estimate work, missed deadlines, development & product bottlenecks, and eventually low morale and high turnover.
+- Bugs & Regressions: inability to write good tests, leading to faulty software.
+
+## Limited team collaboration
+
+When we divide our tasks into some teams and a real implementation for integration tests is being developed by an other team. we need to wait for the implementation(it's not efficient). In addition, it might cause huge merge conflicts, rebuild/retest/redeploy.
+
+## Testing can quickly become an unsustainable/costly liability for the team and the company
+
+The number of tests required when testing in integration is equivalent to at least the amount of combination of states the components participating in the integration can be at.
+
+For example, if component A has 4 possible states, and component B has 5 possible states, we need 20 tests (4x5) to guarantee correctness when relying on integration tests as the primary testing strategy.(If we use unit tests as the primary strategy, we only need 9 isolated tests.)
+
+Also, integration tests needs much larger setup codes than unit tests. Then it will result in increasing much more complexity and test times.
 
 # Some types of UI tests in iOS
 
@@ -460,6 +500,11 @@ Triangulating specific data points helps us de-risk and increase the test covera
 
 We can improve our process of testing “hidden” behaviors simply by triangulating examples around a specific data point.
 
+# Testing effectively with 3rd-party frameworks
+
+Test-driving 3rd-party frameworks like UIKit is different from test-driving your implementations because you need to know how to use the framework upfront.
+
+When testing with 3rd-party frameworks in the mix, you shouldn’t have to “test that the framework works.” You should trust that 3rd-party frameworks work as intended.
 # Test tips
 
 When testing UIViewController, we sometimes meet difficulties because of UIKIt internal(hidden) behaviors.
