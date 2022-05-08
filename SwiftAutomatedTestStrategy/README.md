@@ -18,6 +18,7 @@
 - [Refactoring and test](#refactoring-and-test)
 - [We should strive to test behaviors instead of implementations.](#we-should-strive-to-test-behaviors-instead-of-implementations)
 - [We should strive to test through the public interfaces](#we-should-strive-to-test-through-the-public-interfaces)
+  - [How to add unit tests?](#how-to-add-unit-tests)
 - [Dependencies which make unit tests difficult (FIRE rules)](#dependencies-which-make-unit-tests-difficult-fire-rules)
   - [(F)ast](#fast)
   - [(I)solated](#isolated)
@@ -35,6 +36,9 @@
   - [RunLoop tricks](#runloop-tricks)
   - [Simulate user drags scroll](#simulate-user-drags-scroll)
   - [Avoid singletons by Subclass and Override Method.](#avoid-singletons-by-subclass-and-override-method)
+  - [Test doubles](#test-doubles)
+    - [Stub](#stub)
+    - [Spy](#spy)
 - [The Transformation Priority Premise](#the-transformation-priority-premise)
 - [Code Analysis](#code-analysis)
   - [Overall test lines of code per production lines of code](#overall-test-lines-of-code-per-production-lines-of-code)
@@ -303,6 +307,12 @@ private extension ViewController {
 # We should strive to test through the public interfaces
 
 Related to the above, by not exposing internal/private types to tests, the refactoring was safe and easy. That’s the power of testing only through the public interfaces: behavior is guaranteed to stay the same while we have the freedom to move things around and repurpose the design as needed.
+
+We can test internal/private types are preferably to tested in integration tests via public interfaces. So, if we want to change internal/private types to public, we should add unit/isolated tests for them since it can be used in distinct integration contexts
+
+## How to add unit tests?
+
+Create a class by mimicking the existing class step by step to avoid missing all functionality of it (including assets, strings, etc). We might not know the exact specs, but at least, we can guarantee the current behavior and start refactoring.
 
 # Dependencies which make unit tests difficult (FIRE rules)
 
@@ -609,6 +619,58 @@ final class OverrideViewController: UIViewController {
 ```
 
 [Subclass and Override: A Legacy Code Technique](https://medium.com/pragmatic-programmers/subclass-and-override-a-legacy-co-de-technique-44dbc6ac1a74)
+
+## Test doubles
+
+### Stub
+
+A Stub provides predefined responses to method invocations made during the tests. It doesn’t capture values for later inspection or usage. It's a simple test-double that can help us create flexible tests. It usually requires us to write less code, but may result in less code coverage when not used properly. It can lead us to make too many upfront design decisions, resulting in a longer feedback loop. 
+
+For example,
+
+```swift
+protocol HTTPClient {
+    func get(from: URL, completion: @escaping Result<(Data, HTTPURLResponse), Error> -> Void)
+}
+```
+
+```swift
+class HTTPClientStub: HTTPClient {
+    var result: Result<(Data, HTTPURLResponse), Error> // stubbed value
+    // ...
+    func get(from: URL, completion: @escaping Result<(Data, HTTPURLResponse), Error> -> Void) {
+        completion(result)
+    }
+}
+
+func test() {
+    let stub = HTTPClientStub()
+    stub.result = .failure(someError)
+    // ...
+}
+```
+
+### Spy
+
+A Spy collects or "records" usage information such as method invocation count and values received. So we can use/verify them later in the test.
+
+For example, 
+
+```swift
+class HTTPClientSpy: HTTPClient {
+    var receivedCompletion: [(Result<(Data, HTTPURLResponse), Error>) -> Void] = []
+    // ...
+    func get(from: URL, completion: @escaping Result<(Data, HTTPURLResponse), Error> -> Void) {
+        receivedCompletion.append(completion)
+    }
+}
+
+func test() {
+    let spy = HTTPClientSpy()
+    spy.receivedCompletion[0](.failure(someError))
+    // ...
+}
+```
 
 # The Transformation Priority Premise
 
