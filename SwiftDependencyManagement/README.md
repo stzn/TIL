@@ -358,7 +358,11 @@ At most, one instance of each type is served per an implicitly or explicitly def
 
 Like the above, we can create several components in the Composition Root. The Composition Root isn’t a method or a class, it’s a concept. It can be a part of the Main method, or it can span multiple classes, as long as they are all in a single module. 
 
-In addition, we could define Factory to create a proper instance in each module. But be careful that we should use it only in the Composition Root.
+We should consider separate of concern in the Composition Root as well.
+
+For example, we could define Factory to create a proper instance in each module. Also, we could Flow(Router/Coordinator) to handle navigation.
+
+Just be careful that we should use them only in the Composition Root.
 
 ## Do we need to inject so much dependencies in Composition Root?
 
