@@ -1,5 +1,7 @@
 - [Words](#words)
-- [Some aspects of good architecture](#some-aspects-of-good-architecture)
+- [The goal of software architecture](#the-goal-of-software-architecture)
+- [Good software architecture](#good-software-architecture)
+- [Some development aspects of good architecture](#some-development-aspects-of-good-architecture)
 - [Modular design & modularization](#modular-design--modularization)
   - [Effective modular design](#effective-modular-design)
   - [Functional Independence is a factor](#functional-independence-is-a-factor)
@@ -68,7 +70,17 @@
 
 component: functions, modules, classes, protocols, interfaces, data structures, dependencies and any language/platform or component-like types in the codebase
 
-# Some aspects of good architecture
+# The goal of software architecture
+
+Maximize software delivery reducing effort to do so
+
+# Good software architecture
+
+- Guarantee we can deliver more work aligned with our business goals
+- Guarantee business goals and needs are achieved following the constrains and quality requirements
+- Should provide more productive ways to develop, maintain, extend, test, and deploy the app
+
+# Some development aspects of good architecture
 
 - Low cost for change
     - Welcome requirement changes
@@ -334,6 +346,8 @@ A model should be a simple and consistent representation of a domain concept. Wh
 The system's boundaries, based on their specifications, may require multiple model representations. Opting to use a single model across modules may lead to complex, costly-to-maintain, and hard-to-use code. Trying to solve everyone’s problems at once will solve no one’s.
 
 As developers, we often strive to find perfect abstractions, so multiple representations of a data model seem inelegant. For this reason, it’s common to see code bases where a desire to fully unify the domain model leads to inconsistent and hard to reason/maintain design. A unified model can be a good starting solution, but it is often not scalable or cost-effective.
+
+As a guideline, follow the Single Responsibility Principle: a component should have only one reason to change.
 
 ※ Of course, a unified model is not always bad. For example, if we believe the model won't change or the domain model and all segregated models always change together.
 
