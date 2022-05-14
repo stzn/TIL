@@ -1,4 +1,6 @@
 - [Words](#words)
+- [The goal of software architecture](#the-goal-of-software-architecture)
+- [Good software architecture](#good-software-architecture)
 - [Some aspects of good architecture](#some-aspects-of-good-architecture)
 - [Modular design goal](#modular-design-goal)
 - [Decoupling business logics(rules) from any framework(infrastructure) logics](#decoupling-business-logicsrules-from-any-frameworkinfrastructure-logics)
@@ -93,6 +95,16 @@
 # Words
 
 component: functions, modules, classes, protocols, interfaces, data structures, dependencies and any language/platform or component-like types in the codebase
+
+# The goal of software architecture
+
+Maximize software delivery reducing effort to do so
+
+# Good software architecture
+
+- Guarantee we can deliver more work aligned with our business goals
+- Guarantee business goals and needs are achieved following the constrains and quality requirements
+- Should provide more productive ways to develop, maintain, extend, test, and deploy the app
 
 # Some aspects of good architecture
 
