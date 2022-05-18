@@ -375,6 +375,10 @@ We should consider separate of concern in the Composition Root as well.
 For example, we could define Factory to create a proper instance in each module. Also, we could Flow(Router/Coordinator) to handle navigation.
 
 Just be careful that we should use them only in the Composition Root.
+※ This does not mean that we should define Factory and Flow in the Composition Root. This means they should be referenced only from the Composition Root.
+
+In large applications, it’s essential to be able to work with each area of the application in isolation. We can ask a simple question: Is it possible to use each module in isolation?
+In theory, we should be able to compose modules any way we like. We may need to write new modules to bind existing modules together in new and unanticipated ways, but, ideally, we should be able to do so without having to modify the existing modules.
 
 ## Do we need to inject so much dependencies in Composition Root?
 
