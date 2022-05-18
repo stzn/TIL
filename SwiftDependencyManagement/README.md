@@ -28,7 +28,8 @@
     - [Transient Lifestyle](#transient-lifestyle)
     - [Scoped Lifestyle](#scoped-lifestyle)
   - [Does the Composition Root become too big?](#does-the-composition-root-become-too-big)
-  - [Do we need to inject so much dependencies in Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-composition-root)
+  - [Is it ok to expose concrete components to other modules?](#is-it-ok-to-expose-concrete-components-to-other-modules)
+  - [Do we need to inject so much dependencies in the Composition Root?](#do-we-need-to-inject-so-much-dependencies-in-the-composition-root)
   - [We don't need all dependencies should be initialized immediately](#we-dont-need-all-dependencies-should-be-initialized-immediately)
   - [How to test the Composition Root?](#how-to-test-the-composition-root)
 - [DI patterns](#di-patterns)
@@ -380,7 +381,11 @@ Just be careful that we should use them only in the Composition Root.
 In large applications, it’s essential to be able to work with each area of the application in isolation. We can ask a simple question: Is it possible to use each module in isolation?
 In theory, we should be able to compose modules any way we like. We may need to write new modules to bind existing modules together in new and unanticipated ways, but, ideally, we should be able to do so without having to modify the existing modules.
 
-## Do we need to inject so much dependencies in Composition Root?
+## Is it ok to expose concrete components to other modules?
+
+We can if needed. But the more we expose concrete details, the harder it's to change them without breaking clients. That's why it's usually preferred to hide details if possible. For example, we can provide UIViewController to navigate to it, not a concrete subclass of UIViewController.
+
+## Do we need to inject so much dependencies in the Composition Root?
 
 Apparently yes. But in facet, it's often said that we have many implicit dependencies. So, actual number of dependencies are not different. The Composition Root makes them explicit and we can get a clear dependency graph.
 
