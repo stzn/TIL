@@ -80,7 +80,7 @@
     - [Event driven design](#event-driven-design)
     - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
     - [Side-effect free core business rules](#side-effect-free-core-business-rules)
-    - [Functional core, Imperative share](#functional-core-imperative-share)
+    - [Functional core, Imperative shell](#functional-core-imperative-shell)
   - [Unified vs Segregated models](#unified-vs-segregated-models)
     - [The problem of a unified model](#the-problem-of-a-unified-model)
     - [Creating Segregated models (DTO)](#creating-segregated-models-dto)
@@ -1117,7 +1117,7 @@ Keeping our core domain free from side-effects makes it extremely easy to build,
 
 Side-effects (e.g. I/O, database writes, UI updates, etc) do need to happen, but not at the core of the application. The side-effects can happen at the boundary of the system, in the Infrastructure implementations.
 
-### Functional core, Imperative share
+### Functional core, Imperative shell
 
 This separation is called Functional Core, Imperative Shell.
 
