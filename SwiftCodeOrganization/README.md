@@ -52,6 +52,10 @@
     - [Outside-in](#outside-in)
   - [Inside-out](#inside-out)
   - [Which one is better?](#which-one-is-better)
+- [Refactoring](#refactoring)
+  - [Strangler Pattern](#strangler-pattern)
+- [Transformations](#transformations)
+  - [The Transformation Priority Premise](#the-transformation-priority-premise)
 - [Codebase analysis(Health check)](#codebase-analysishealth-check)
   - [The number of files changed per commit](#the-number-of-files-changed-per-commit)
   - [Lines of code per file](#lines-of-code-per-file)
@@ -770,7 +774,54 @@ By defining the abstractions of infrastructure, we can decide the implementation
 
 It depends on the situations. The point is that the lack of something won't disturb our development. But, if we have UI sketch, it could be better to start from Outside-in approach. Also, when we get it, it could be better to switch to Outside-in approach. This is because  we can interact with stakeholders more rapidly and smoothly to deliver our app.
 
+# Refactoring
+
+## Strangler Pattern
+
+When refactoring, it takes much more time tha expected.
+
+It's said that  
+for each desired change, make the change easy (warning: **this may be hard**), then make the easy change
+
+So,  
+For any significant change, don’t make it in-place; make it side-by-side.
+
+This means gradually replace a legacy system with a newer system.
+
+For example, 
+- At the method level, we first add a new method, gradually move callers over, and finally delete the old method. - At the class level, we first add a new class, gradually move callers over, and finally delete the old class.
+
+# Transformations
+
+Refactoring have counterparts called Transformations. Refactoring are simple operations that change the structure of code without changing it’s behavior. Transformations are simple operations that change the behavior of code.
+
+Transformations don't mean just to fix the code. Moving forward in small steps reduces the risk of mistakes. When we edit code, we transform it from one working state to another. Keep the time when the code is invalid as short as possible.
+
+## The Transformation Priority Premise
+
+There are some Transformations patterns
+
+- ({}→nil) no code at all → code that employs nil
+- (nil→constant)
+- (constant→constant+) a simple constant to a more complex constant
+- (constant→scalar) replacing a constant with a variable or an argument
+- (statement→statements) adding more unconditional statements
+- (unconditional→if) splitting the execution path
+- (scalar→array)
+- (array→container)
+- (statement→recursion)
+- (if→while)
+- (expression→function) replacing an expression with a function or algorithm
+- (variable→assignment) replacing the value of a variable
+
+The list is ordered roughly so that the simpler transformations are at the top, and the more complex changes are at the bottom.
+
+The point with the Transformation Priority Premise is that we should aim to make changes to our code using the small transformations from the list.
+
+[The Transformation Priority Premise](https://blog.cleancoder.com/uncle-bob/2013/05/27/TheTransformationPriorityPremise.html)
+
 # Codebase analysis(Health check)
+
 
 It doesn't take much to make an unmaintainable codebase or decrease the quality of a good codebase.
 
