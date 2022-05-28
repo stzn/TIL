@@ -222,6 +222,8 @@ When working on legacy code bases with tests we don't trust (or no tests at all)
 
 Low coupling between tests and implementation details makes tests resilient to changes in production. This way, we’re free to change production implementation without breaking tests.
 
+Simple violation example is that when we change Array to Set for performance reasons, test code should not be updated.
+
 For example, assuming that there is a button which users can save data by tapping it. In a UIViewController test,  we want to simulate its tapping action.
 
 We can do this like the below.
