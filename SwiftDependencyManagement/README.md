@@ -79,6 +79,7 @@
     - [The Decorator pattern and code duplication(DRY violation)](#the-decorator-pattern-and-code-duplicationdry-violation)
     - [Event driven design](#event-driven-design)
     - [AOP(Aspect Oriented Programming)](#aopaspect-oriented-programming)
+    - [What is side-effect?](#what-is-side-effect)
     - [Side-effect free core business rules](#side-effect-free-core-business-rules)
     - [Functional core, Imperative shell](#functional-core-imperative-shell)
   - [Unified vs Segregated models](#unified-vs-segregated-models)
@@ -1023,10 +1024,14 @@ It might not be the best solution. This could also need extra logics. The thing 
 
 ### Command-Query Separation(CQS)
 
+Command-Query Separation is a programming principle that can help us identify functions/methods that do too much.
+
 CQS promotes the idea that each method should either
 
 - Return a result, but not mutate the observable state of the system
 - Mutate the state, but not produce any value
+
+However, like all principles, it doesn’t fit all contexts (no silver-bullets). It’s common to see commands/modifiers that, for a good reason, return a result. Swift’s Standard Library remove(at index: Int) method for mutable collections does not comply with the CQS principle because it returns the removed object. But for a good reason: it leads to simpler and more idiomatic code!
 
 ### Cache(Example)
 
@@ -1111,6 +1116,14 @@ We can compose subscriptions in the Composition Root. It's important since it be
 
 The primary aim of AOP is to keep our cross-cutting concerns DRY(Don't repeat yourself). There’s a strong relationship between the OCP(the Open/Closed Principle) and the DRY principle. They both strive for the same objective, which is to reduce repetition and prevent sweeping changes.
 
+### What is side-effect?
+
+Side effects are changes to state outside the local scope.
+
+A function has no side-effects if it only operates with the data passed as arguments - without any mutation outside the local scope.
+
+https://en.wikipedia.org/wiki/Side_effect_(computer_science)
+
 ### Side-effect free core business rules
 
 Keeping our core domain free from side-effects makes it extremely easy to build, maintain and test.
@@ -1123,7 +1136,7 @@ This separation is called Functional Core, Imperative Shell.
 
 <img src="./images/functional_core.png" alt= "functional core" width="100%">
 
-Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input).
+Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input), more reliable, 
 
 ## Unified vs Segregated models
 
