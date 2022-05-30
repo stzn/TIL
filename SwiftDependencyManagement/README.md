@@ -92,6 +92,42 @@
 - [From dependency injection to dependency rejection](#from-dependency-injection-to-dependency-rejection)
 - [Separation pros/cons](#separation-proscons)
 - [External dependencies count & Introducing 3rd-party libraries](#external-dependencies-count--introducing-3rd-party-libraries)
+- [Anti-patterns](#anti-patterns)
+  - [Control Freak](#control-freak)
+    - [Negative Effects](#negative-effects)
+    - [Improvement](#improvement)
+  - [Service Locator](#service-locator)
+    - [Positive Effects](#positive-effects)
+    - [Negative Effects](#negative-effects-1)
+    - [Measurement](#measurement)
+  - [Ambient Context](#ambient-context)
+    - [Logging also tends to be Ambient Context](#logging-also-tends-to-be-ambient-context)
+    - [Negative Effects](#negative-effects-2)
+    - [Measurement](#measurement-1)
+  - [Constrained Construction](#constrained-construction)
+    - [Negative Effects](#negative-effects-3)
+    - [Measurement](#measurement-2)
+- [Code Smells](#code-smells)
+  - [Constructor Over-injection](#constructor-over-injection)
+    - [Smell Recognition](#smell-recognition)
+    - [Wrong measurement](#wrong-measurement)
+    - [Measurement](#measurement-3)
+      - [Facade Services](#facade-services)
+      - [Domain Events](#domain-events)
+    - [Abuse of Abstract Factories](#abuse-of-abstract-factories)
+      - [Abuse of Abstract Factories to overcome lifetime problems](#abuse-of-abstract-factories-to-overcome-lifetime-problems)
+      - [The Leaky Abstraction](#the-leaky-abstraction)
+    - [Parameter-less factory methods are Leaky Abstractions](#parameter-less-factory-methods-are-leaky-abstractions)
+    - [Measurement](#measurement-4)
+      - [Proxy design pattern](#proxy-design-pattern)
+    - [Abusing Abstract Factories to select Dependencies based on runtime data](#abusing-abstract-factories-to-select-dependencies-based-on-runtime-data)
+    - [Measurement](#measurement-5)
+  - [Cyclic Dependencies](#cyclic-dependencies)
+    - [Cause](#cause)
+    - [Measurement](#measurement-6)
+      - [Split classes](#split-classes)
+      - [Domain events](#domain-events-1)
+      - [Property Injection](#property-injection-1)
 - [Resources](#resources)
 
 # Words
@@ -173,7 +209,7 @@ Domain Models are usually tiny little objects when compared with the size of the
 
 ## Framework (Infrastructure) logic
 
-Framework (Infrastructure) logic should not implement any business rules. Mixing business logic with infrastructure details is one of the most common (and one of the biggest mistakes) we find in codebases (e.g. Database and Network clients implementing validation or business rules operations or Domain Models inheriting from framework types, CoreData’s `NSManagedObject`). Doing so will scatter business logic across your code with no central source of truth. Tangled business rules and infrastructure code is harder to use, reuse, maintain, and test.
+Framework (Infrastructure) logic should not implement any business rules. Mixing business logic with infrastructure details is one of the most common (and one of the biggest mistakes) we find in codebases (e.g. Database and Network clients implementing validation or business rules operations or Domain Models inheriting from framework types, CoreData’s `NSManagedObject`). Doing so will scatter business logic across our code with no central source of truth. Tangled business rules and infrastructure code is harder to use, reuse, maintain, and test.
 
 For example, assuming that changing our local database from CoreData to Realm forced to change(more to say rewrite) our business logics, it's not good.
 
@@ -1114,7 +1150,7 @@ We can compose subscriptions in the Composition Root. It's important since it be
 
 ### AOP(Aspect Oriented Programming)
 
-The primary aim of AOP is to keep our cross-cutting concerns DRY(Don't repeat yourself). There’s a strong relationship between the OCP(the Open/Closed Principle) and the DRY principle. They both strive for the same objective, which is to reduce repetition and prevent sweeping changes.
+The primary aim of AOP is to keep our cross-cutting concerns DRY(Don't repeat ourself). There’s a strong relationship between the OCP(the Open/Closed Principle) and the DRY principle. They both strive for the same objective, which is to reduce repetition and prevent sweeping changes.
 
 ### What is side-effect?
 
@@ -1136,7 +1172,11 @@ This separation is called Functional Core, Imperative Shell.
 
 <img src="./images/functional_core.png" alt= "functional core" width="100%">
 
-Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input), more reliable, 
+Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input), more reliable, so pure.
+
+The definition of purity is that whether a function is referentially transparent. That's the core definition: Can we replace a function call with its result?
+
+This includes a function that throws an exception. It basically just returns bottom type.
 
 ## Unified vs Segregated models
 
@@ -1342,6 +1382,253 @@ A very large value for this metric should be considered alarming and harmful in 
 
 The key idea to understand is that these libraries or frameworks can become a liability instead of the asset we initially thought they were. To protect ourselves, the team and the company from the downsides of such dependencies, we can decouple them from our systems by using dependency inversion. To do so, create an abstraction between third-party libraries and our application.
 
+# Anti-patterns
+
+## Control Freak
+
+### Negative Effects
+
+many benefits of modular design are potentially lost.
+
+- Although we can configure an application to use one of multiple pre-configured Dependencies, we can’t replace them at will
+- It becomes harder to reuse the consuming module because it drags with it Dependencies that may be undesirable in the new context
+- It makes parallel development more difficult since the consuming application is tightly coupled to all implementations of its Dependencies
+- Testability suffers. Test Doubles can’t be used as substitutes for the Dependency
+
+### Improvement
+
+refactor our code toward one of the proper DI design patterns
+
+1. Ensure that we’re programming to an Abstraction. we may need to first extract an interface and change variable declarations.
+2. If we create a particular implementation of a Dependency in multiple places, move them all to a single creation method. Make sure this method’s return value is expressed as the Abstraction and not the concrete type.
+3. Now that we have only a single place where we create the instance, move this creation out of the consuming class by implementing one of the DI patterns, such as Constructor Injection.
+
+## Service Locator
+
+A Service Locator supplies application components outside the Composition Root with access to an unbounded set of Volatile Dependencies
+
+As it’s most commonly implemented, the Service Locator is a Static Factory that can be configured with concrete services before the first consumer begins to use it. 
+
+In essence, asking a container or locator to resolve a complete object graph from the Composition Root is proper usage. Asking it for granular services from anywhere else but the Composition Root implies the Service Locator anti-pattern
+
+### Positive Effects
+
+- support late binding by changing the registration
+- develop code in parallel, because we’re programming against interfaces, replacing modules at will
+- achieve good separation of concerns, so nothing stops us from writing maintainable code, but doing so becomes more difficult
+- replace Dependencies with Test Doubles, so Testability is ensured.
+
+### Negative Effects
+
+- The class drags along the Service Locator as a redundant Dependency
+※ We’d accept it as a tax to be paid to gain other benefits. But there are better options (such as Constructor Injection) available, so this Dependency is redundant
+
+- The class makes it non-obvious what its Dependencies are
+The class is far from self documenting: we can’t tell which Dependencies must be present before it’ll work. In fact, the developers of it may even decide to add more Dependencies in future versions. That would mean that code that works for the current version can fail in a future version, and we aren’t going to get a compiler error that warns us
+
+- A Test Double registered in one test case will lead to the Interdependent Tests code smell, because it remains in memory when the next test case is executed. It’s therefore necessary to perform teardown after every test
+
+###  Measurement
+
+1. In many cases, a class that consumes a Service Locator may have calls to it spread throughout its code base. In such cases, it acts as a replacement for the new statement. When this is so, the first refactoring step is to consolidate the creation of each Dependency in a single method. 
+2. If we don’t have a member field to hold an instance of the Dependency, we can introduce such a field and make sure the rest of the code uses this field when it consumes the Dependency. Mark the field readonly to ensure that it can’t be modified outside the constructor
+※ Introducing a Dependency parameter to a constructor is likely to break existing consumers, so it’s best to start with the top-most classes and work our way down the Dependency graph
+
+At first glance, Service Locator may look like a proper DI pattern, but don’t be fooled: it may explicitly address loose coupling, but it sacrifices other concerns along the way
+
+## Ambient Context
+
+An Ambient Context supplies application code outside the Composition Root with global access to a Volatile Dependency or its behavior by the use of static class members.
+
+e.g. Date()
+
+※ a Service Locator allows global access to an unrestricted set of Dependencies
+
+Ambient Context is similar in structure to the Singleton pattern.9  Both allow access to a Dependency by the use of static class members. The difference is that Ambient Context allows its Dependency to be changed, whereas the Singleton pattern ensures that its singular instance never changes.
+
+Other common variations we might encounter are these:
+
+- allows consumers to make use of the behavior of a globally configured
+- merges the static accessor with the interface into a single Abstraction
+- where delegates are used instead of a custom-defined Abstraction
+
+
+### Logging also tends to be Ambient Context
+
+Another common case where developers tend to take a shortcut and step into the Ambient Context trap is when it comes to applying logging to their applications
+
+Developers tend to apply Ambient Context for loggers because they need logging in almost every class in their application. Injecting it in the constructor could easily lead to constructors with too many Dependencies. This is indeed a code smell called Constructor Over-injection
+
+### Negative Effects
+
+Ambient Context is usually encountered when developers have a Cross-Cutting Concern as a Volatile Dependency, which is used ubiquitously.
+
+It allows them to hide Dependencies and avoids the necessity of adding the Dependency to many constructors in their application.
+
+- The Dependency is hidden(leads to SRP violation)
+- Testing becomes more difficult(when tests run in parallel, but even sequentially executed tests can be affected when a test forgets to revert its changes as part of its teardown)
+- It becomes hard to change the Dependency based on its context.
+- There’s Temporal Coupling between the initialization of the Dependency and its usage(Unless we initialize the Ambient Context in the Composition Root, the application fails when the class starts using the Dependency for the first time)
+
+###  Measurement
+
+It can be hard to convince developers to move away from Ambient Context, because they’re so accustomed to using it.
+
+1. Centralize the call to the Ambient Context, the constructor is a good place to do this. Create a private readonly field that can hold a reference to the Dependency and assign it with the Ambient Context’s Dependency 
+2. The rest of the class’s code can now use this new private field
+3. The call to the Ambient Context can now be replaced with a constructor parameter that assigns the field(This new constructor parameter will likely cause consumers to break. But if DI was applied already, this should only cause changes to the Composition Root and the class’s tests)
+
+## Constrained Construction
+
+Constrained Construction forces all implementations of a certain Abstraction to require their constructors to have an identical signature with the goal of enabling late binding
+
+※
+The Constrained Construction anti-pattern only applies when we employ late binding. When we use early binding, the compiler ensures that we never introduce implicit constraints on how components are constructed. If we can get away with recompiling the startup project, we should keep our Composition Root centralized in the startup project. Late binding introduces extra complexity, and complexity increases maintenance costs.
+
+### Negative Effects
+
+It might be tempting to declare that all Dependency implementations should have a parameter-less constructor. After all, they could perform their initialization internally
+
+When we have more than one class requiring the same Dependency, we may want to share a single instance among all those classes. This is possible only when we can inject that instance from the outside. 
+※ Sharing an instance saves memory but can introduce interaction-related problems, such as threading issues.
+
+### Measurement 
+
+To combat this inflexibility, the only feasible solution is to use a general-purpose DI Container. Because DI Containers analyze constructor signatures using reflection, the Abstract Composition Root doesn’t need to know the Dependencies used to construct its components
+
+# Code Smells
+
+A code smell is a hint that something might be wrong, not a certainty. A perfectly good idiom may be considered a code smell because it’s often misused, or because there’s a simpler alternative that works better in most cases. Calling something a code smell is not an attack; it’s a sign that a closer look is warranted.
+
+Where an anti-pattern is a description of a commonly occurring solution to a problem that generates decidedly negative consequences, a code smell, on the other hand, is a code construct that might cause problems. Code smells simply warrant further investigation.
+
+## Constructor Over-injection
+
+Having many Dependencies is an indication of a Single Responsibility Principle (SRP) violation. SRP violations lead to code that’s hard to maintain. Such a change doesn’t lower the class’s complexity, which should be our primary focus.
+
+### Smell Recognition
+
+When a constructor’s parameter list grows too large, we call the phenomenon Constructor Over-injection and consider it a code smell.
+
+Constructor Injection makes it easy to spot SRP violations. Instead of feeling uneasy about Constructor Over-injection, we should embrace it as a fortunate side effect of Constructor Injection
+
+Our personal threshold lies at four constructor arguments.
+
+
+### Wrong measurement
+
+A tempting, but erroneous, attempt to resolve Constructor Over-injection is through the introduction of Property Injection, perhaps even by moving those properties into a base class. 
+
+### Measurement
+
+#### Facade Services
+
+A Facade Service hides a natural cluster of interacting Dependencies, along with their behavior, behind a single Abstraction.
+
+The first thing we need to do is to look for natural clusters of interaction. We can discover an implicit domain concept and make it explicit.
+
+Refactoring to Facade Services is more than just a party trick to get rid of too many Dependencies. The key is to identify natural clusters of interaction.
+
+※ It's closely related to [Parameter Objects](https://www.refactoring.com/catalog/introduceParameterObject.html), but the main difference is that a Parameter Object only moves the parameters to a common root, while a Facade Service hides the aggregate behavior behind a new abstraction. 
+
+[Refactoring to Aggregate Services](https://blog.ploeh.dk/2010/02/02/RefactoringtoAggregateServices/)
+
+#### Domain Events
+
+The essence of a domain event is that we use it to capture actions that can trigger a change to the state of the application we’re developing.
+
+It allows code to be defined on a more conceptual level, while letting us build more-robust software, especially where we have to communicate with external systems that aren’t part of our database transaction.
+
+We can generalize this event handling like the below:
+
+```swift
+public protocol EventHandler<Event> {
+    associatedtype Event
+    func handle(event: Event)
+}
+```
+
+The beauty of a generic interface is that the addition of new features won’t cause any changes to either the interface nor any of the already existing implementations.
+
+### Abuse of Abstract Factories
+
+#### Abuse of Abstract Factories to overcome lifetime problems
+
+For example, although an implementation might require deterministic cleanup, that doesn’t imply that it should be the responsibility of the consumer to ensure proper cleanup. This brings us to the concept of Leaky Abstractions.
+
+#### The Leaky Abstraction
+
+There are cases where we already have a concrete type and now want to extract an interface. When we do this, we must take care that the underlying implementation doesn’t leak through. 
+
+One way this can happen is if we only extract an interface from a given concrete type, but some of the parameter or return types are still concrete types defined in the library we want to abstract from. If we need to extract an interface, we need to do it in a recursive manner, ensuring that all types exposed by the root interface are themselves interfaces. We call this Deep Extraction, and the result is Deep Interfaces.
+
+※ This doesn’t mean that interfaces can’t expose any concrete classes. It’s typically fine to expose behavior-less data objects, such as Parameter Objects, view models, and Data Transfer Objects (DTOs). They’re defined in the same library as the interface instead of the library we want to abstract from. Those data objects are part of the Abstraction.
+
+Always consider whether a given Abstraction makes sense for implementations other than the one we have in mind.
+
+### Parameter-less factory methods are Leaky Abstractions
+
+Abstract Factories with parameter-less factory methods are often used to allow consumers to control the lifetime of their Dependencies. It lets the consumer know that there are specific details, and that it has to deal with them. Because another implementation might not require them at all, we’re therefore leaking implementation details through the Abstract Factory with its parameter-less method.
+
+Conceptually, there’s only one instance of a service Abstraction. During the lifetime of a consumer, it shouldn’t be concerned with the possibility that multiple instances of a Dependency can exist. Anything otherwise would cause needless complication for consumers, which means the Abstraction isn’t designed for their benefit.
+
+### Measurement
+
+Consuming code shouldn’t be concerned with the possibility of there being more than one instance. We should therefore get rid of the factory completely and instead let consumers depend solely on the instance, which they should have injected using Constructor Injection.
+
+Although removing Lifetime Management simplifies consumers, we’ll have to manage the dependencies’ lifetime somewhere in the application. A common pattern to address this problem is the Proxy pattern
+
+#### Proxy design pattern
+
+The Proxy design pattern provides a surrogate or placeholder for another object to control access to it.
+
+This would be an implementation of the Control Freak anti-pattern if the Proxy was defined in our domain layer. Instead, we should either define this Proxy in the layer in which contains the instance or, more likely, the Composition Root.
+
+In the case that an Abstraction has many members, it becomes quite cumbersome to create Proxy implementations. Abstractions with many members, however, typically violate the Interface Segregation Principle.
+
+The Interface Segregation Principle (ISP) states that “No client should be forced to depend on methods it doesn’t use. The ISP may at first seem to be distantly related to DI. It’s important because an interface that models too much pulls us in the direction of a particular implementation.
+
+### Abusing Abstract Factories to select Dependencies based on runtime data
+
+Abstract Factories should typically accept runtime values as input. Without them, we’re leaking implementation details about the implementation to the consumer. This doesn’t mean that an Abstract Factory that accepts runtime data is the correct solution to every situation. More often than not, it isn’t.
+
+There is the problem of Dependency Inversion Principle which the consumer of the Abstraction that should dictate its shape and define the Abstraction in a way that suits its needs the most. One way of looking at this is by evaluating the number of Dependencies the consumer has, which tells us something about the complexity of the class. When we introduce an Abstract Factory, we always increase the number of Dependencies a consumer has. This increased complexity might not be obvious at first, but it can be felt instantly when we start unit testing it.
+
+A service Abstraction shouldn’t accept another service Abstraction as input, nor should it have service Abstractions as output parameters or as a return type. Application services that depend on other application services force their clients to know about both Dependencies.
+
+### Measurement
+
+When we use Abstract Factories to select Dependencies based on supplied runtime data, more often than not, we can reduce complexity by refactoring toward Adapters that don’t expose the underlying Dependency like the Abstract Factory does.
+
+## Cyclic Dependencies
+
+An implementation requires another Dependency whose implementation requires the first Abstraction.
+
+### Cause
+
+Dependency cycles are typically caused by an SRP violation.
+
+Ever-changing Abstractions are a strong indication of SRP violations. This also relates to the Open/Closed Principle (OCP), which states that we should be able to add features without having to change existing classes.
+
+
+### Measurement
+
+The most common cause of Dependency cycles is an SRP violation. The more methods a class has, the higher the chance it violates the Single Responsibility Principle. This is also related to the Interface Segregation Principle, which prefers narrow interfaces.
+
+There are some strategies.
+
+#### Split classes
+
+In most cases, we can split classes with too many methods into smaller classes to break the cycle.
+
+#### Domain events
+
+We can often break a cycle by changing one of the Abstractions to raise events instead of having to explicitly invoke a Dependency to inform the Dependency that something happened. Events are particularly appropriate if one side only invokes void methods on its Dependency.
+
+#### Property Injection
+
+If all else fails, we can break the cycle by refactoring one class from Constructor Injection to Property Injection. This should be a last way, because it only treats the symptoms.
+
 # Resources
 
 - [Composition Root](https://blog.ploeh.dk/2011/07/28/CompositionRoot/)
@@ -1352,3 +1639,4 @@ The key idea to understand is that these libraries or frameworks can become a li
 - [functional-core-imperative-shell](https://www.destroyallsoftware.com/screencasts/catalog/functional-core-imperative-shell)
 - [Refactoring: Improving the Design of Existing Code (Addison-Wesley Signature Series (Fowler)) 2nd Edition](https://www.amazon.com/Refactoring-Improving-Existing-Addison-Wesley-Signature-ebook/- [Temporal Coupling](https://blog.ploeh.dk/2011/05/24/DesignSmellTemporalCoupling/)
 dp/B07LCM8RG2)
+[Refactoring to Aggregate Services](https://blog.ploeh.dk/2010/02/02/RefactoringtoAggregateServices/)
