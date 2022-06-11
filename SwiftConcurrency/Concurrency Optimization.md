@@ -189,9 +189,9 @@ Actors make it safe for multiple tasks to manipulate shared state. However, they
 
 Swift concurrency allows for parallel computation using unstructured tasks, task groups, and async let. Ideally, these constructs are able to use many CPU cores simultaneously. When using Actors from such code, beware of performing large amounts of work on an Actor that's shared among these tasks. When multiple tasks attempt to use the same Actor simultaneously, the Actor serializes execution of those tasks. Because of this, we lose the performance benefits of parallel computation.
 
-<img src="./images/actor_run_one_task_at_once.png" alt= "actor run one task at once" width="100%">
+<img src="./images/concurrency_optimization/actor_run_one_task_at_once.png" alt= "actor run one task at once" width="100%">
 
-<img src="./images/actor_contention.png" alt= "actor contention" width="100%">
+<img src="./images/concurrency_optimization/actor_contention.png" alt= "actor contention" width="100%">
 
 
 The source code shows us that this closure is primarily running our compression work. Since the compressFile function is part of the ParallelCompressor Actor, the entire execution of this function happens on the Actor; blocking all other compression work.
@@ -210,14 +210,14 @@ func compressAllFiles() {
 }
 ```
 
-<img src="./images/compressFile_run_on_actor.png" alt= "compressFile run on actor" width="100%">
+<img src="./images/concurrency_optimization/compressFile_run_on_actor.png" alt= "compressFile run on actor" width="100%">
 
 
 ### Solution
 
 We need to pull the compressFile function out of Actor-isolation and into a detached task. We can have the detached task only on an Actor for as long as needed to update the relevant mutable state. So the compress function can be executed freely, on any thread in the thread pool, until it needs to access Actor-protected state. Also, by not being constrained to an Actor, they can all be executed concurrently, only limited by the number of threads.
 
-<img src="./images/compressFile_on_any_thread_in_the_thread_pool.png" alt= "compressFile on any thread in the thread pool" width="100%">
+<img src="./images/concurrency_optimization/compressFile_on_any_thread_in_the_thread_pool.png" alt= "compressFile on any thread in the thread pool" width="100%">
 
 ```swift
 actor ParallelCompressor {
@@ -276,7 +276,7 @@ However, it's possible for code within a task to perform a blocking call, such a
 
 In extreme cases, when the entire thread pool is occupied by blocked tasks, and they're waiting on something that requires a new task to run on the thread pool, the concurrency runtime can deadlock.
 
-<img src="./images/thread_pool_exhaustion.png" alt= "thread pool exhaustion" width="100%">
+<img src="./images/concurrency_optimization/thread_pool_exhaustion.png" alt= "thread pool exhaustion" width="100%">
 
 #### Solution
 
@@ -295,7 +295,7 @@ When we're using continuations, we must be careful to use them correctly.
 
 A continuation suspends the current task and provides a callback which resumes the task when called. This can then be used with callback-based async APIs. 
 
-<img src="./images/continuation.png" alt= "continuation" width="100%">
+<img src="./images/concurrency_optimization/continuation.png" alt= "continuation" width="100%">
 
 #### Problem
 
