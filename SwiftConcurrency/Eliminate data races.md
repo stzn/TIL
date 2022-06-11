@@ -668,8 +668,6 @@ func deposit(pineapples: [Pineapple], onto island: Island) async {
 }
 ```
 
-<img src="./images/eliminate_data_races/actors_try_to_copy_reference.png" alt= "actors try to copy reference" width="100%">
-
 The first operation gets a copy of the food array from the island.
 
 <img src="./images/eliminate_data_races/visit_and_copy_pineapples.png" alt= "visit and copy pineapples" width="100%">
