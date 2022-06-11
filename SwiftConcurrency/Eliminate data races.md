@@ -1,23 +1,23 @@
 - [Eliminate data races](#eliminate-data-races)
-  - [In short](#in-short)
-    - [Task isolation](#task-isolation)
-      - [Tasks](#tasks)
+- [In short](#in-short)
+  - [Task isolation](#task-isolation)
+    - [Tasks](#tasks)
     - [Communication between Tasks](#communication-between-tasks)
     - [`Sendable` protocol](#sendable-protocol)
       - [`Sendable` types are safe to share](#sendable-types-are-safe-to-share)
       - [`Sendable` checking for types](#sendable-checking-for-types)
       - [`Sendable` function types](#sendable-function-types)
-    - [Actor isolation](#actor-isolation)
+  - [Actor isolation](#actor-isolation)
     - [Actors](#actors)
     - [Mutual exclusion](#mutual-exclusion)
     - [Maintain isolation](#maintain-isolation)
     - [Reference isolation](#reference-isolation)
-      - [Non-isolated code](#non-isolated-code)
+    - [Non-isolated code](#non-isolated-code)
     - [@MainActor](#mainactor)
       - [@MainActor types](#mainactor-types)
-    - [Atomicity (Preventing high-level data races)](#atomicity-preventing-high-level-data-races)
-    - [Ordering](#ordering)
-  - [Explain using analogy](#explain-using-analogy)
+  - [Atomicity (Preventing high-level data races)](#atomicity-preventing-high-level-data-races)
+  - [Ordering](#ordering)
+- [Explain using analogy](#explain-using-analogy)
   - [Task isolation](#task-isolation-1)
     - [Communication between Tasks](#communication-between-tasks-1)
     - [Value types - mutations have only local effects](#value-types---mutations-have-only-local-effects)
@@ -50,13 +50,13 @@
 
 Learn a way of structuring our program to make efficient use of concurrency without introducing data races
 
-## In short
+# In short
 
 They show good explanation using ana:ogy, but as a reference, showing essences at first.
 
-### Task isolation
+## Task isolation
 
-#### Tasks
+### Tasks
 
 - Swift's concurrency model ensures that data is not shared in a manner that can introduce data races
 - Tasks perform sequentially from start to finish
@@ -93,8 +93,7 @@ the `Sendable` protocol
 - The closure is being inferred to be a `Sendable` closure
 - `Sendable` closures are values of `Sendable` function type. `@Sendable` can be written on a function type to indicate that the function type conforms to the `Sendable` protocol. That implies that values of that function type can be passed to other isolation domains and called there without introducing data races on their captured state
 
-
-### Actor isolation
+## Actor isolation
 
 ### Actors
 
@@ -110,7 +109,6 @@ the `Sendable` protocol
 
 - Interactions between a task and an actor need to maintain isolation of both, by making sure that non-`Sendable` types don't pass between the two.
 
-
 ### Reference isolation
 
 - Actors are reference types, but unlike classes, they isolate all of their properties and code to prevent concurrent access, so having a reference to an actor from a different isolation domain is safe
@@ -121,7 +119,7 @@ the `Sendable` protocol
 - The task initializer inherits actor isolation from its context, so the created task will be scheduled on the same actor as it was initiated from
 - A detached task does not inherit actor isolation from its context, because it is completely independent of the context where it was created
 
-#### Non-isolated code
+### Non-isolated code
 
 - Non-isolated code is code that does not run on any actor at all. We can explicitly make a function that's within an actor non-isolated by using the `non-isolated` keyword. If we want to read some of the state that's isolated to the actor, we'll need to use “await” and grab a copy of the state we need
 - Non-isolated async code always runs on the global cooperative pool
@@ -153,7 +151,7 @@ GCP: global cooperative pool
 - We can share a reference to our view controller with other tasks and actors in our program, and they can asynchronously call back into the view controller to post results. In our app, our views and view controllers will be on the main actor. 
 - Other program logic should be separated from that main actor, using other actors to safely model shared state and tasks to describe independent work
 
-### Atomicity (Preventing high-level data races)
+## Atomicity (Preventing high-level data races)
 
 - We need to reason about atomicity at a high level.
 - Actors only run one task at a time. This ensures that the program makes progress, eliminating the potential for deadlocks
@@ -163,13 +161,13 @@ GCP: global cooperative pool
 - We should make our method as synchronous code on the actor since it will run on the actor without interruption. So the state of the actor will be unchanged by anyone else throughout the entire function
 - The point is think transactionally. Identify synchronous operations that can be interleaved, Keep async actor operations simple
 
-### Ordering
+## Ordering
 
 - Actors execute the highest-priority work first, to help the overall system stay responsive This eliminates priority inversions where lower-priority work ends up happening before higher-priority work on the same actor. **This is a significant difference from serial Dispatch queues, which execute in a strictly First-In, First-Out order**
 - Tasks execute from beginning to end, with the normal control flow we're used to, so they naturally order work
 - `AsyncStream` can iterate over the stream of events with a `for-await-in` loop, processing each event in turn. An `AsyncStream` can be shared with any number of event producers, which can add elements to the stream while maintaining order
 
-## Explain using analogy
+# Explain using analogy
 
 The sea of concurrency is unpredictable, with many things going on at once, but with we at the helm and Swift helping we navigate the waters, it can produce amazing things.
 
