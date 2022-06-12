@@ -1,5 +1,5 @@
 - [Eliminate data races](#eliminate-data-races)
-- [In short](#in-short)
+- [To explain briefly](#to-explain-briefly)
   - [Task isolation](#task-isolation)
     - [Tasks](#tasks)
     - [Communication between Tasks](#communication-between-tasks)
@@ -50,9 +50,9 @@
 
 Learn a way of structuring our program to make efficient use of concurrency without introducing data races
 
-# In short
+# To explain briefly
 
-They show good explanation using ana:ogy, but as a reference, showing essences at first.
+They show good explanation using analogy, but as a reference, showing essences at first.
 
 ## Task isolation
 
