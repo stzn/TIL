@@ -26,18 +26,18 @@ Swift concurrency makes it easy to to write correct concurrent and parallel code
 
 ## Main actor blocking
 
-Main Actor blocking occurs when a long-running task runs on the main Actor.
+The main actor blocking occurs when a long-running task runs on the main actor.
 
 ### Problem
 
-The main Actor is a special Actor which executes all of its work on the main thread. UI work must be done on the main thread, and the main Actor allows us to integrate UI code into Swift Concurrency. 
+The main actor is a special actor which executes all of its work on the main thread. UI work must be done on the main thread, and the main actor allows us to integrate UI code into Swift Concurrency. 
 
 However, because the main thread is so important for UI, it needs to be available and can't be occupied by a long-running unit of work. When this happens, our app appears to lock up and becomes unresponsive. 
 
 ### Example
 
 ```swift
-@MainActor // 2 
+@MainActor // 1 
 class CompressionState: ObservableObject {
     @Published var files: [FileStatus] = []
     var logs: [String] = []
@@ -76,7 +76,7 @@ class CompressionState: ObservableObject {
         } progressNotification: { progress in
             update(url: url, progress: progress)
             log(update: "Progress for \(url): \(progress)")
-        } finalNotificaton: { compressedSize in
+        } finalNotification: { compressedSize in
             update(url: url, compressedSize: compressedSize)
         }
         log(update: "Ending for \(url)")
@@ -90,19 +90,19 @@ class CompressionState: ObservableObject {
 ```
 
 
-1. The entire CompressionState class is annotated to run on the @MainActor. The @Published property here must only be updated from the Main Thread, otherwise, we could run into runtime issues. 
-2. The compress file function is located within the CompressionState class. So, the Task also ran on the Main Thread.
+1. The entire `CompressionState` class is annotated to run on the `@MainActor`. The `@Published` property here must only be updated from the Main Thread, otherwise, we could run into runtime issues. 
+2. The `compressFile` function is located within the `CompressionState` class. So, the Task also ran on the Main Thread.
 
 ### Solution
 
-Code running on the main Actor must finish quickly, and either complete its work or move computation off of the main Actor and into the background. Work can be moved into the background by putting it in a normal Actor or in a detached task. Small units of work can be executed on the main Actor to update UI or perform other tasks that must be done on the main thread. 
+Code running on the main actor must finish quickly, and either complete its work or move computation off of the main actor and into the background. Work can be moved into the background by putting it in a normal actor or in a detached task. Small units of work can be executed on the main actor to update UI or perform other tasks that must be done on the main thread. 
 
 We have two different pieces of mutable state here within this class. 
 
-- @Published var files: [FileStatus]: Main Actor
-- var logs: [String]: needs to be protected from concurrent access, but doesn't actually need to be on the Main Actor
+- @Published var files: [FileStatus]: The main actor
+- var logs: [String]: needs to be protected from concurrent access, but doesn't actually need to be on the main actor
 
-So, we wrap `logs` in its own Actor.
+So, we wrap `logs` in its own actor.
 
 ```swift
 actor ParallelCompressor { // 1
@@ -168,7 +168,7 @@ class CompressionState: ObservableObject {
     func compressAllFiles() {
         for file in files {
             Task {
-                let compressedData = await compressor.compressFile(url: file.url) // 1
+                let compressedData = await compressor.compressFile(url: file.url) // 2
                 await save(compressedData, to: file.url)
             }
         }
@@ -176,7 +176,7 @@ class CompressionState: ObservableObject {
 }
 ```
 
-1. Remove the code that referred to the logs variable from the CompressionState class, and add it to our ParallelCompressor Actor
+1. Remove the code that referred to the logs variable from the CompressionState class, and add it to our ParallelCompressor actor
 2. Update CompressionState to invoke compressFile on the ParallelCompressor.
 
 ## Actor contention
@@ -185,24 +185,24 @@ The UI is no longer hung, which is a great improvement, but we aren't getting th
 
 ### Problem
 
-Actors make it safe for multiple tasks to manipulate shared state. However, they do this by serializing access to that shared state. Only one task at a time is allowed to occupy the Actor, and other tasks that need to use that Actor will wait.
+Actors make it safe for multiple tasks to manipulate shared state. However, they do this by serializing access to that shared state. Only one task at a time is allowed to occupy the actor, and other tasks that need to use that actor will wait.
 
-Swift concurrency allows for parallel computation using unstructured tasks, task groups, and async let. Ideally, these constructs are able to use many CPU cores simultaneously. When using Actors from such code, beware of performing large amounts of work on an Actor that's shared among these tasks. When multiple tasks attempt to use the same Actor simultaneously, the Actor serializes execution of those tasks. Because of this, we lose the performance benefits of parallel computation.
+Swift concurrency allows for parallel computation using unstructured tasks, task groups, and async let. Ideally, these constructs are able to use many CPU cores simultaneously. When using actors from such code, beware of performing large amounts of work on an actor that's shared among these tasks. When multiple tasks attempt to use the same actor simultaneously, the actor serializes execution of those tasks. Because of this, we lose the performance benefits of parallel computation.
 
 <img src="./images/concurrency_optimization/actor_run_one_task_at_once.png" alt= "actor run one task at once" width="100%">
 
 <img src="./images/concurrency_optimization/actor_contention.png" alt= "actor contention" width="100%">
 
 
-The source code shows us that this closure is primarily running our compression work. Since the compressFile function is part of the ParallelCompressor Actor, the entire execution of this function happens on the Actor; blocking all other compression work.
+The below source code shows us that the closure in `Task` is primarily running our compression work. Since the `compressFile` function is part of the `ParallelCompressor` actor, the entire execution of `compressAllFiles` function happens on the actor; blocking all other compression work.
 
 ```swift
 
-// MainActor
+// run on Main actor
 func compressAllFiles() {
     for file in files {
         Task {
-            // ParallelCompressor Actor
+            // run on ParallelCompressor actor
             let compressedData = await compressor.compressFile(url: file.url) // 1
             await save(compressedData, to: file.url)
         }
@@ -215,7 +215,9 @@ func compressAllFiles() {
 
 ### Solution
 
-We need to pull the compressFile function out of Actor-isolation and into a detached task. We can have the detached task only on an Actor for as long as needed to update the relevant mutable state. So the compress function can be executed freely, on any thread in the thread pool, until it needs to access Actor-protected state. Also, by not being constrained to an Actor, they can all be executed concurrently, only limited by the number of threads.
+We need make sure that tasks only run on the actor when they really need exclusive access to the actor's data. Everything else should run off of the actor. We divide the task into chunks. Some chunks must run on the actor, and the others don't. 
+
+So, We need to pull the `compressFile` function out of actor-isolation and into a detached task. We can have the detached task only on an actor for as long as needed to update the relevant mutable state. So the compress function can be executed freely, on any thread in the thread pool, until it needs to access actor-protected state. Also, by not being constrained to an actor, they can all be executed concurrently, only limited by the number of threads.
 
 <img src="./images/concurrency_optimization/compressFile_on_any_thread_in_the_thread_pool.png" alt= "compressFile on any thread in the thread pool" width="100%">
 
@@ -339,7 +341,7 @@ await withCheckedContinuation { continuation in
 }
 ```
 
-Resuming the continuation twice.
+Resuming the continuation twice. This is also a bug, and the app will misbehave or crash.
 
 #### Solution
 
