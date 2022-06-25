@@ -84,8 +84,7 @@ They show good explanation using analogy, but as a reference, showing essences a
 - Classes are reference types, so they can only be made `Sendable` under very narrow circumstances, such as when a final class only has immutable storage
 - It is possible to implement reference types that do their own internal synchronization(e.g. using a lock consistently), then We can use `@unchecked Sendable` to disable the compiler's checking.
 - But, be careful with this, because `@unchecked Sendable` undermines the data race safety guarantees Swift is providing.
-- There is similar support for tuples of `Sendable` types conforming to 
-the `Sendable` protocol
+- There is similar support for tuples of `Sendable` types conforming to the `Sendable` protocol
 
 #### `Sendable` function types
 
@@ -121,9 +120,9 @@ the `Sendable` protocol
 
 ### Non-isolated code
 
-- Non-isolated code is code that does not run on any actor at all. We can explicitly make a function that's within an actor non-isolated by using the `non-isolated` keyword. If we want to read some of the state that's isolated to the actor, we'll need to use “await” and grab a copy of the state we need
+- Non-isolated code is code that does not run on any actor at all. We can explicitly make a function that's within an actor non-isolated by using the `nonisolated` keyword. If we want to read some of the state that's isolated to the actor, we'll need to use "await" and grab a copy of the state we need
 - Non-isolated async code always runs on the global cooperative pool
-- Synchronous, non-isolated to any actor, and only operates on the parameters it's been given, so it stays in the isolation domain where it is called
+- Most Swift code is synchronous, non-isolated to any actor, and only operates on the parameters it's been given, so it stays in the isolation domain where it is called
 
 |  caller / callee  |  non-isolated  sync  |  non-isolated async |
 | ---- | ---- | ---- |
@@ -148,7 +147,7 @@ GCP: global cooperative pool
 - The properties are only accessible while on the main actor
 - The methods are isolated to the main actor unless they explicitly opt out
 - Main actor classes are `Sendable`
-- We can share a reference to our view controller with other tasks and actors in our program, and they can asynchronously call back into the view controller to post results. In our app, our views and view controllers will be on the main actor. 
+- We can share a reference to our view controller with other tasks and actors in our program, and they can asynchronously call back into the view controller to post results.
 - Other program logic should be separated from that main actor, using other actors to safely model shared state and tasks to describe independent work
 
 ## Atomicity (Preventing high-level data races)
@@ -157,7 +156,7 @@ GCP: global cooperative pool
 - Actors only run one task at a time. This ensures that the program makes progress, eliminating the potential for deadlocks
 - However, when we stop running on an actor, the actor can run other tasks. It prevents deadlocks, but it also requires us to consider our actor's invariants carefully around await statements.
 - Otherwise, we can end up with a high-level data race where the program is in an unexpected state, even though no data is actually corrupted
-- For example, We have two awaits in a method for access to a state on the same actor, and we're making an assumption that it doesn't change between those two awaits. So, our task could get suspended and the actor could do other higher-priority work. If another method on the same actor changed the state when our first method were suspending at the first await, the state had changed when getting it at the second await
+- For example, We have two awaits in a method for access to a state on the same actor, and we're making an assumption that it doesn't change between those two awaits. However, our task could get suspended and the actor could do other higher-priority work. If another method on the same actor changed the state when our first method were suspending at the first await, the state had changed when getting it at the second await
 - We should make our method as synchronous code on the actor since it will run on the actor without interruption. So the state of the actor will be unchanged by anyone else throughout the entire function
 - The point is think transactionally. Identify synchronous operations that can be interleaved, Keep async actor operations simple
 
