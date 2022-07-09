@@ -6,14 +6,14 @@
   - [Actor contention](#actor-contention)
     - [Problem](#problem-1)
     - [Solution](#solution-1)
-    - [Thread Pool Exhaustion](#thread-pool-exhaustion)
-      - [Problem](#problem-2)
-      - [Solution](#solution-2)
-        - [Avoid blocking calls in tasks](#avoid-blocking-calls-in-tasks)
-    - [Continuation misuse](#continuation-misuse)
-      - [Problem](#problem-3)
-      - [Solution](#solution-3)
-  - [References](#references)
+  - [Thread Pool Exhaustion](#thread-pool-exhaustion)
+    - [Problem](#problem-2)
+    - [Solution](#solution-2)
+      - [Avoid blocking calls in tasks](#avoid-blocking-calls-in-tasks)
+  - [Continuation misuse](#continuation-misuse)
+    - [Problem](#problem-3)
+    - [Solution](#solution-3)
+- [References](#references)
 
 # Common Problems
 
@@ -265,12 +265,12 @@ class CompressionState: ObservableObject {
 3. Update task creation to create a detached task
 4. Need to explicitly capture self for detached tasks
 
-### Thread Pool Exhaustion
+## Thread Pool Exhaustion
 
 Thread pool exhaustion can hurt performance or even deadlock an application.
 
 
-#### Problem
+### Problem
 
 Swift concurrency requires tasks to make forward progress when they're running. When a task waits for something, it normally does so by suspending. 
 
@@ -280,9 +280,9 @@ In extreme cases, when the entire thread pool is occupied by blocked tasks, and 
 
 <img src="./images/concurrency_optimization/thread_pool_exhaustion.png" alt= "thread pool exhaustion" width="100%">
 
-#### Solution
+### Solution
 
-##### Avoid blocking calls in tasks
+#### Avoid blocking calls in tasks
 
 File and network IO must be performed using async APIs. Avoid waiting on condition variables or semaphores. Fine-grained, briefly-held locks are acceptable if necessary, but avoid locks that have a lot of contention or are held for long periods of time. 
 
@@ -291,7 +291,7 @@ If we have code that needs to do these things, move that code outside of the con
 e.g. Running it on a Dispatch queue and bridge it to the concurrency world using continuations.  
 ※ Whenever possible, use async APIs for blocking operations to keep the system operating smoothly.
 
-### Continuation misuse
+## Continuation misuse
 
 When we're using continuations, we must be careful to use them correctly. 
 
@@ -299,7 +299,7 @@ A continuation suspends the current task and provides a callback which resumes t
 
 <img src="./images/concurrency_optimization/continuation.png" alt= "continuation" width="100%">
 
-#### Problem
+### Problem
 
 Continuation callbacks have a special requirement: they must be called exactly once, no more, no less. This is a common requirement in callback-based APIs, but it tends to be an informal one and is not enforced by the language, and oversights are common.
 
@@ -343,13 +343,10 @@ await withCheckedContinuation { continuation in
 
 Resuming the continuation twice. This is also a bug, and the app will misbehave or crash.
 
-#### Solution
+### Solution
 
 Always use the `withCheckedContinuation` API for continuations unless performance is absolutely critical. Checked continuations automatically detect misuse and flag an error. When a checked continuation is called twice, the continuation traps. When the continuation is never called at all, a message is printed to the console when the continuation is destroyed warning you that the continuation leaked.
 
-## References
+# References
 
 [Visualize and optimize Swift concurrency](https://developer.apple.com/videos/play/wwdc2022/110350/)
-
-
-
