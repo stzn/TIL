@@ -228,13 +228,13 @@ Three roles take part in the dependency inversion
 2. A low-level component that is aware of the delivery mechanism (e.g., UI, hardware, databases, network, etc).
 3. A boundary component, such as a protocol or closure, acting as an abstraction to guarantee the high-level component doesn’t depend on low-level details.
 
-<img src="./images/functional_core.png" alt= "functional core" width="100%">
+<img src="./images/functional_core.png" alt= "functional core" width="50%">
 
 When the high-level component needs to communicate with low-level implementation details, it does so through the boundary abstraction. The low-level component implements the boundary abstraction and performs actions based on the high-level component’s commands.
 
 The boundary provides the flexibility for making the other two participants (high and low level components) free from ever knowing about each other’s existence.
 
-<img src="./images/dependency_inversion.png" alt= "functional core" width="100%">
+<img src="./images/dependency_inversion.png" alt= "functional core" width="50%">
 
 # Two kinds of dependencies
 
@@ -331,7 +331,7 @@ It only composes modules and not reusable and the only one who knows every concr
 
 In the below image, the `SceneDelegate` centralizes the instantiation and composition of our app in a single class.
 
-<img src="./images/modular_composition_root.png" alt= "modular composition root" width="100%">
+<img src="./images/modular_composition_root.png" alt= "modular composition root" width="50%">
 
 ### Composition Root should not be public
 
@@ -349,7 +349,7 @@ Composer could be a DI Container, but it can also be any method that constructs 
 
 For example, we can define composers for each our module.
 
-<img src="./images/composition_root1.png" alt= "composition_root 1" width="100%">
+<img src="./images/composition_root1.png" alt= "composition_root 1" width="50%">
 
 ### Composer rules
 
@@ -361,7 +361,7 @@ In a large app, it's very important that we can develop each module separately. 
 
 For example, after login, we want to show an item list. We need to navigate from the login page to the list page. The simplest way to do that is to directly push to the list page.
 
-<img src="./images/composition_root2.png" alt= "composition_root 2" width="100%">
+<img src="./images/composition_root2.png" alt= "composition_root 2" width="50%">
 
 But, there could be some problems.
 
@@ -373,7 +373,7 @@ To avoid such problems, we can delegate the login event to the Composition Root 
 
 The above assumes that `SceneDelegate` manages navigation stack (It's the simplest way).
 
-<img src="./images/composition_root3.png" alt= "composition_root 3" width="100%">
+<img src="./images/composition_root3.png" alt= "composition_root 3" width="50%">
 
 Of course, if we handle more complicated app, it's easy to make `SceneDelegate` quite messy. So, we can define new components to do navigation logics in the Composition Root like Flow, Coordinator, Router.
 
@@ -672,7 +672,7 @@ class ItemListViewModel {
 
 So, what's the problem?
 
-<img src="./images/singleton_problem1.png" alt= "singleton problem1" width="100%">
+<img src="./images/singleton_problem1.png" alt= "singleton problem1" width="50%">
 
 Imagine, we have `ServerAPIClient` Login, Items, Friends and more modules. All the modules share `ServerAPIClient` class, but Login does't care about Items. Items does't care about Friends...
 Every time we need to add a new method in `ServerAPIClient`, we need to recompile all the other modules because they depend on this concrete type. They have source code dependency on this `ServerAPIClient`. If we want to reuse Login modules in a different application(a different context), we can't bring it without `ServerAPIClient`. Even if `ServerAPIClient` is in a shared modules, it's the same since other modules need to import it.
@@ -703,7 +703,7 @@ But, if we need to care about modular design(reusability), we should solve this.
 
 A simple way is using extensions.
 
-<img src="./images/modular_extension.png" alt= "modular extension" width="100%">
+<img src="./images/modular_extension.png" alt= "modular extension" width="50%">
 
 - Create a generic method(`execute(request)`).
 - Every module has each own `ServerAPIClient` extension with whatever method they need.
@@ -755,7 +755,7 @@ If we need to be more flexible without breaking the clients, we can invert depen
 
 To do so, we introduce protocol or closures ot any type of interface for the modules.
 
-<img src="./images/modular_inversion.png" alt= "modular inversion" width="100%">
+<img src="./images/modular_inversion.png" alt= "modular inversion" width="50%">
 
 For example, Login needs a function or a type that implements a function talking to an API.
 
@@ -830,7 +830,7 @@ To be more modular, we can use Adapter pattern.
 
 Adapter pattern enables components with incompatible interfaces to work together seamlessly. The purpose is to convert the interface of a component into another interface a client expects. It enables us to decouple components from complex dependencies. It is often implemented as a class, nothing stops us from following its principles to implement adapter functions.
 
-<img src="./images/modular_adapter.png" alt= "modular adapter" width="100%">
+<img src="./images/modular_adapter.png" alt= "modular adapter" width="50%">
 
 Adapter can live in Composition Root. That's why each components doesn't need to know each other.
 
@@ -913,7 +913,7 @@ A class could handle all the transitions initially, but it can inflate the numbe
 
 ## Factory does not reduce coupling
 
-In this lecture, we demonstrated how using a concrete factory directly in the client code does not provide any value regarding Dependency Injection, modularity, or decoupling. In fact, even Abstract Factories can increase the number of redundant dependencies and complicate the design.
+Using a concrete factory directly in the client code does not provide any value regarding Dependency Injection, modularity, or decoupling. In fact, even Abstract Factories can increase the number of redundant dependencies and complicate the design.
 
 Factories should be used to remove duplication / encapsulate the logic of creating complex instances, not to reduce coupling. To reduce coupling, Factories (such as Composers) should be used only in the Composition Root.
 
@@ -1170,7 +1170,7 @@ Side-effects (e.g. I/O, database writes, UI updates, etc) do need to happen, but
 
 This separation is called Functional Core, Imperative Shell.
 
-<img src="./images/functional_core.png" alt= "functional core" width="100%">
+<img src="./images/functional_core.png" alt= "functional core" width="50%">
 
 Since there are no side-effects in the Functional Core components, they are deterministic (always return the same output for a given input), more reliable, so pure.
 
