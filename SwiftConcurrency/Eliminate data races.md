@@ -567,7 +567,7 @@ We can call it from the actor-isolated `greetOne` function.
 
 This synchronous code, when called from the island, will stay on the island, so it's free to operate on the chicken from the flock.
 
-If instead we had a non-isolated async operation that calls `greet`, then it will run there, on a boat, in the open sea.
+If instead we had a non-isolated async operation that calls `greetAny`, then it will run there, on a boat, in the open sea.
 
 ```swift
 func greet(_ friend: Chicken) { }
