@@ -949,7 +949,7 @@ We want value semantics.
 
 ##### How can we get value semantics?
 
-There's a technique called copy and write that allows us to work around this.
+There's a technique called "copy on write" that allows us to work around this.
 
 ##### Copy on Write
 
