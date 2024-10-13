@@ -828,7 +828,7 @@ func drawACopy(val: ExistContDrawable) {
    var local = ExistContDrawable()
    let vwt = val.vwt
    let pwt = val.pwt
-   local.type = type
+   local.vwt = vwt
    local.pwt = pwt
 ```
 
