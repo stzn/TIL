@@ -332,11 +332,19 @@ Cocoa[Touch] has a number of immutable classes:
 
 ### Allocation
 
+#### Global
+
+- Allocated and initialized when the program is loaded
+- This isn’t free, but it’s close to it.
+- It only works for specific patterns(e.g. global variables and static member variables) with a fixed amount of memory that will live for the entire duration of the program.
+
 #### Stack
 
 - Really simple data structure
 - Push onto the end of the stack and pop off the end of the stack
 - Because it can only ever be added or removed to the end of the stack, push and pop can be implemented just by keeping a pointer to the end of the stack
+- It only works in certain patterns(e.g. local variable).
+- The memory has to be scoped: there has to be a point in the current function where we’re guaranteed that there will be no more uses of that memory.
 
 #### Heap
 
@@ -344,7 +352,7 @@ Cocoa[Touch] has a number of immutable classes:
 - Requires a more advanced data structure
 - Have to search the heap data structure to find an unused block of the appropriate size.
 - Done with it, to deallocate it, have to reinsert that memory back into the appropriate position. So, clearly, there's more involved here than just assigning an integer like we had with the stack. (But these aren't even necessarily the main costs) 
-- A pretty large cost comes from that multiple threads can be allocating memory on the heap at the same time since the heap needs to protect its integrity using locking or other synchronization mechanisms
+- A pretty large cost comes from that multiple threads can be allocating memory on the heap at the same time since the heap needs to protect its integrity using locking or other synchronization mechanisms(atomic)
 
 #### The difference between a struct and a class
 
